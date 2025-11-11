@@ -75,6 +75,15 @@ export const Dashboard: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-2">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">KAM CRM</h1>
           <div className="flex items-center gap-2 sm:gap-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/meeting-analysis')}
+              className="hidden sm:flex"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Análise IA
+            </Button>
             <span className="hidden sm:inline text-sm text-gray-600">Bem-vindo, {user?.full_name}</span>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4 sm:mr-2" />

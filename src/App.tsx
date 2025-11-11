@@ -2,9 +2,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import { Dashboard } from './pages/Dashboard';
 import { Accounts } from './pages/Accounts';
 import { Meetings } from './pages/Meetings';
+import MeetingAnalysis from './pages/MeetingAnalysis';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -55,6 +58,22 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <PublicRoute>
+            <ResetPassword />
+          </PublicRoute>
+        }
+      />
+      <Route
         path="/dashboard"
         element={
           <PrivateRoute>
@@ -75,6 +94,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Meetings />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/meeting-analysis"
+        element={
+          <PrivateRoute>
+            <MeetingAnalysis />
           </PrivateRoute>
         }
       />

@@ -66,6 +66,11 @@ export const Login: React.FC = () => {
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
             <div className="text-sm text-center">
+              <Link to="/forgot-password" className="text-blue-600 hover:underline">
+                Esqueci minha senha
+              </Link>
+            </div>
+            <div className="text-sm text-center">
               Não tem uma conta?{' '}
               <Link to="/register" className="text-blue-600 hover:underline">
                 Cadastre-se
