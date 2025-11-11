@@ -147,3 +147,6 @@ export const opportunitiesAPI = {
     return response.data;
   },
 };
+
+export { api };
+export default api;

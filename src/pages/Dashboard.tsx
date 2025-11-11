@@ -5,7 +5,7 @@ import { accountsAPI, meetingsAPI, opportunitiesAPI } from '../services/api';
 import { Account, Meeting, Opportunity, KAMStage, OpportunityStatus } from '../types';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Users, FileText, TrendingUp, LogOut, Plus } from 'lucide-react';
+import { Users, FileText, TrendingUp, LogOut, Plus, Sparkles } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
