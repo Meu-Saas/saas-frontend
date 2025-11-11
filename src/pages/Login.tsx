@@ -30,11 +30,11 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">KAM CRM</CardTitle>
-          <CardDescription>Entre na sua conta</CardDescription>
+          <CardTitle className="text-xl sm:text-2xl">KAM CRM</CardTitle>
+          <CardDescription className="text-sm">Entre na sua conta</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

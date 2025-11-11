@@ -74,12 +74,12 @@ export const Accounts: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <h1 className="text-2xl font-bold text-gray-900">Contas</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Contas</h1>
           </div>
           <Dialog open={showDialog} onOpenChange={setShowDialog}>
             <DialogTrigger asChild>
@@ -88,9 +88,9 @@ export const Accounts: React.FC = () => {
                 Nova Conta
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="w-full max-w-full sm:max-w-lg md:max-w-2xl p-4 sm:p-6">
               <DialogHeader>
-                <DialogTitle>Criar Nova Conta</DialogTitle>
+                <DialogTitle className="text-lg sm:text-xl">Criar Nova Conta</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -154,23 +154,23 @@ export const Accounts: React.FC = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {accounts.map((account) => (
               <Card key={account.id} className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>{account.name}</span>
-                    <span className={`text-xs px-2 py-1 rounded ${getStageColor(account.kam_stage)}`}>
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span className="break-words">{account.name}</span>
+                    <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${getStageColor(account.kam_stage)}`}>
                       {getStageName(account.kam_stage)}
                     </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {account.industry && (
-                    <p className="text-sm text-gray-600 mb-2">Setor: {account.industry}</p>
+                    <p className="text-sm text-gray-600 mb-2 break-words">Setor: {account.industry}</p>
                   )}
                   {account.description && (
-                    <p className="text-sm text-gray-500">{account.description}</p>
+                    <p className="text-sm text-gray-500 line-clamp-2 sm:line-clamp-3 break-words">{account.description}</p>
                   )}
                   <div className="mt-4 flex gap-2">
                     <Button

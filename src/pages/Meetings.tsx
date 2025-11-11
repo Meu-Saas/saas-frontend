@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { meetingsAPI, accountsAPI } from '../services/api';
 import { Meeting, Account, AIInsight } from '../types';
@@ -10,11 +10,14 @@ import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { ArrowLeft, Plus, Sparkles } from 'lucide-react';
+import { useIsMobile } from '../hooks/use-mobile';
 
 export const Meetings: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const accountFilter = searchParams.get('account');
+  const isMobile = useIsMobile();
+  const insightsRef = useRef<HTMLDivElement>(null);
   
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -80,6 +83,11 @@ export const Meetings: React.FC = () => {
       console.error('Error loading insights:', error);
     } finally {
       setLoadingInsights(false);
+      if (isMobile && insightsRef.current) {
+        setTimeout(() => {
+          insightsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
     }
   };
 
@@ -94,12 +102,12 @@ export const Meetings: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <h1 className="text-2xl font-bold text-gray-900">Reuniões</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Reuniões</h1>
           </div>
           <Dialog open={showDialog} onOpenChange={setShowDialog}>
             <DialogTrigger asChild>
@@ -108,9 +116,9 @@ export const Meetings: React.FC = () => {
                 Nova Reunião
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="w-full max-w-full sm:max-w-lg md:max-w-2xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Registrar Nova Reunião</DialogTitle>
+                <DialogTitle className="text-lg sm:text-xl">Registrar Nova Reunião</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -166,7 +174,8 @@ export const Meetings: React.FC = () => {
                     id="transcription"
                     value={formData.transcription}
                     onChange={(e) => setFormData({ ...formData, transcription: e.target.value })}
-                    rows={8}
+                    rows={6}
+                    className="sm:rows-8"
                     required
                     placeholder="Digite as notas ou transcrição da reunião..."
                   />
@@ -213,8 +222,8 @@ export const Meetings: React.FC = () => {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-sm text-gray-600">{account?.name}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-600 break-words">{account?.name}</p>
+                        <p className="text-xs sm:text-sm text-gray-500 break-words">
                           {new Date(meeting.meeting_date).toLocaleString('pt-BR')}
                         </p>
                       </CardContent>
@@ -225,7 +234,7 @@ export const Meetings: React.FC = () => {
             )}
           </div>
 
-          <div>
+          <div ref={insightsRef}>
             <h2 className="text-lg font-semibold mb-4">Insights de IA</h2>
             {!selectedMeeting ? (
               <Card>
@@ -304,7 +313,7 @@ export const Meetings: React.FC = () => {
                     <CardTitle className="text-base">Sugestão de Email</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <pre className="text-sm whitespace-pre-wrap bg-gray-50 p-4 rounded">
+                    <pre className="text-sm whitespace-pre-wrap break-words bg-gray-50 p-4 rounded overflow-hidden">
                       {insights.email_suggestion}
                     </pre>
                   </CardContent>

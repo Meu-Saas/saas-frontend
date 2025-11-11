@@ -72,20 +72,20 @@ export const Dashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">KAM CRM</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">Bem-vindo, {user?.full_name}</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-2">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">KAM CRM</h1>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="hidden sm:inline text-sm text-gray-600">Bem-vindo, {user?.full_name}</span>
             <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sair
+              <LogOut className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sair</span>
             </Button>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Contas</CardTitle>
@@ -192,12 +192,12 @@ export const Dashboard: React.FC = () => {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <Button onClick={() => navigate('/accounts')} className="h-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          <Button onClick={() => navigate('/accounts')} className="h-14 sm:h-20">
             <Users className="w-5 h-5 mr-2" />
             Gerenciar Contas
           </Button>
-          <Button onClick={() => navigate('/meetings')} className="h-20">
+          <Button onClick={() => navigate('/meetings')} className="h-14 sm:h-20">
             <FileText className="w-5 h-5 mr-2" />
             Gerenciar Reuniões
           </Button>
@@ -228,7 +228,7 @@ export const Dashboard: React.FC = () => {
                         <p className="text-sm text-gray-500">{account?.name || 'Conta Desconhecida'}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm">{new Date(meeting.meeting_date).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-xs sm:text-sm break-words">{new Date(meeting.meeting_date).toLocaleDateString('pt-BR')}</p>
                         {meeting.has_ai_analysis && (
                           <span className="text-xs text-green-600">Analisado por IA</span>
                         )}
