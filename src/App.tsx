@@ -1,10 +1,15 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AppLayout } from './components/layout';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Dashboard } from './pages/Dashboard';
 import { Accounts } from './pages/Accounts';
-import { Meetings } from './pages/Meetings';
+import { AccountDetail } from './pages/AccountDetail';
+import { Contacts } from './pages/Contacts';
+import { Opportunities } from './pages/Opportunities';
+import { Activities } from './pages/Activities';
+import { Admin } from './pages/Admin';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -13,7 +18,7 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Carregando...</div>
       </div>
     );
   }
@@ -27,7 +32,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Carregando...</div>
       </div>
     );
   }
@@ -54,30 +59,24 @@ function AppRoutes() {
           </PublicRoute>
         }
       />
+      
       <Route
-        path="/dashboard"
         element={
           <PrivateRoute>
-            <Dashboard />
+            <AppLayout />
           </PrivateRoute>
         }
-      />
-      <Route
-        path="/accounts"
-        element={
-          <PrivateRoute>
-            <Accounts />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/meetings"
-        element={
-          <PrivateRoute>
-            <Meetings />
-          </PrivateRoute>
-        }
-      />
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/accounts" element={<Accounts />} />
+        <Route path="/accounts/:id" element={<AccountDetail />} />
+        <Route path="/contacts" element={<Contacts />} />
+        <Route path="/opportunities" element={<Opportunities />} />
+        <Route path="/activities" element={<Activities />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/:section" element={<Admin />} />
+      </Route>
+      
       <Route path="/" element={<Navigate to="/dashboard" />} />
     </Routes>
   );
@@ -93,4 +92,4 @@ function App() {
   );
 }
 
-export default App
+export default App;

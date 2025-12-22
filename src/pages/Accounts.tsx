@@ -1,26 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { accountsAPI } from '../services/api';
-import { Account, KAMStage } from '../types';
 import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
+import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/ui/table';
+import { Plus, Search, Building2, Star } from 'lucide-react';
+
+interface Account {
+  id: string;
+  name: string;
+  segment: string | null;
+  category_name: string | null;
+  status: string;
+  potential: number | null;
+  kam_user_name: string | null;
+  is_strategic: boolean;
+}
 
 export const Accounts: React.FC = () => {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showDialog, setShowDialog] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    industry: '',
-    description: '',
-    kam_stage: KAMStage.DISCOVERY,
-  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     loadAccounts();
@@ -28,165 +42,197 @@ export const Accounts: React.FC = () => {
 
   const loadAccounts = async () => {
     try {
-      const data = await accountsAPI.getAll();
-      setAccounts(data);
+      setLoading(false);
+      setAccounts([]);
     } catch (error) {
       console.error('Error loading accounts:', error);
-    } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await accountsAPI.create(formData);
-      setShowDialog(false);
-      setFormData({ name: '', industry: '', description: '', kam_stage: KAMStage.DISCOVERY });
-      loadAccounts();
-    } catch (error) {
-      console.error('Error creating account:', error);
-    }
+  const filteredAccounts = accounts.filter((account) => {
+    const matchesSearch =
+      account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.segment?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      filterCategory === 'all' || account.category_name === filterCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const formatCurrency = (value: number | null) => {
+    if (value === null) return '-';
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const getStageColor = (stage: KAMStage) => {
-    switch (stage) {
-      case KAMStage.DISCOVERY: return 'bg-blue-100 text-blue-800';
-      case KAMStage.DEVELOPMENT: return 'bg-yellow-100 text-yellow-800';
-      case KAMStage.EXPANSION: return 'bg-green-100 text-green-800';
-      case KAMStage.RETENTION: return 'bg-purple-100 text-purple-800';
-    }
-  };
-
-  const getStageName = (stage: KAMStage) => {
-    switch (stage) {
-      case KAMStage.DISCOVERY: return 'Descoberta';
-      case KAMStage.DEVELOPMENT: return 'Desenvolvimento';
-      case KAMStage.EXPANSION: return 'Expansão';
-      case KAMStage.RETENTION: return 'Retenção';
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Badge className="bg-green-500">Ativa</Badge>;
+      case 'at_risk':
+        return <Badge className="bg-yellow-500">Em Risco</Badge>;
+      case 'churned':
+        return <Badge variant="destructive">Perdida</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
     }
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Carregando...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-2">
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Contas</h1>
-          </div>
-          <Dialog open={showDialog} onOpenChange={setShowDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nova Conta
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="w-full max-w-full sm:max-w-lg md:max-w-2xl p-4 sm:p-6">
-              <DialogHeader>
-                <DialogTitle className="text-lg sm:text-xl">Criar Nova Conta</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome da Conta</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="industry">Setor</Label>
-                  <Input
-                    id="industry"
-                    value={formData.industry}
-                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Input
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="stage">Estágio KAM</Label>
-                  <Select
-                    value={formData.kam_stage}
-                    onValueChange={(value) => setFormData({ ...formData, kam_stage: value as KAMStage })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={KAMStage.DISCOVERY}>Descoberta</SelectItem>
-                      <SelectItem value={KAMStage.DEVELOPMENT}>Desenvolvimento</SelectItem>
-                      <SelectItem value={KAMStage.EXPANSION}>Expansão</SelectItem>
-                      <SelectItem value={KAMStage.RETENTION}>Retenção</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button type="submit" className="w-full">Criar Conta</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Contas</h1>
+          <p className="text-muted-foreground">
+            Gerencie suas contas-chave
+          </p>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {accounts.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <p className="text-gray-500 mb-4">Nenhuma conta ainda</p>
-              <Button onClick={() => setShowDialog(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Criar Primeira Conta
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Conta
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Nova Conta</DialogTitle>
+              <DialogDescription>
+                Adicione uma nova conta ao sistema
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nome da Conta</Label>
+                <Input id="name" placeholder="Nome da empresa" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="cnpj">CNPJ</Label>
+                  <Input id="cnpj" placeholder="00.000.000/0001-00" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="segment">Segmento</Label>
+                  <Input id="segment" placeholder="Tecnologia" />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="category">Categoria</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A">A</SelectItem>
+                    <SelectItem value="B">B</SelectItem>
+                    <SelectItem value="C">C</SelectItem>
+                    <SelectItem value="strategic">Estrategica</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                Cancelar
               </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {accounts.map((account) => (
-              <Card key={account.id} className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <span className="break-words">{account.name}</span>
-                    <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${getStageColor(account.kam_stage)}`}>
-                      {getStageName(account.kam_stage)}
-                    </span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {account.industry && (
-                    <p className="text-sm text-gray-600 mb-2 break-words">Setor: {account.industry}</p>
-                  )}
-                  {account.description && (
-                    <p className="text-sm text-gray-500 line-clamp-2 sm:line-clamp-3 break-words">{account.description}</p>
-                  )}
-                  <div className="mt-4 flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate(`/meetings?account=${account.id}`)}
-                    >
-                      Reuniões
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              <Button onClick={() => setIsDialogOpen(false)}>Salvar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Contas</CardTitle>
+          <CardDescription>
+            {accounts.length} contas cadastradas
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar contas..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="A">Categoria A</SelectItem>
+                <SelectItem value="B">Categoria B</SelectItem>
+                <SelectItem value="C">Categoria C</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        )}
-      </main>
+
+          {filteredAccounts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>Nenhuma conta encontrada</p>
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => setIsDialogOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Primeira Conta
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Segmento</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Potencial</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>KAM</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAccounts.map((account) => (
+                  <TableRow
+                    key={account.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/accounts/${account.id}`)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{account.name}</span>
+                        {account.is_strategic && (
+                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{account.segment || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{account.category_name || '-'}</Badge>
+                    </TableCell>
+                    <TableCell>{formatCurrency(account.potential)}</TableCell>
+                    <TableCell>{getStatusBadge(account.status)}</TableCell>
+                    <TableCell>{account.kam_user_name || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
