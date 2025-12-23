@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { contactsAPI } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -40,6 +41,13 @@ export const Contacts: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: '',
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadContacts();
@@ -47,11 +55,34 @@ export const Contacts: React.FC = () => {
 
   const loadContacts = async () => {
     try {
-      setLoading(false);
-      setContacts([]);
+      const data = await contactsAPI.getAll();
+      setContacts(data as unknown as Contact[]);
     } catch (error) {
       console.error('Error loading contacts:', error);
+      setContacts([]);
+    } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateContact = async () => {
+    if (!formData.name) return;
+    
+    setSaving(true);
+    try {
+      await contactsAPI.create({
+        name: formData.name,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        role: formData.role || undefined,
+      });
+      setIsDialogOpen(false);
+      setFormData({ name: '', email: '', phone: '', role: '' });
+      loadContacts();
+    } catch (error) {
+      console.error('Error creating contact:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -96,26 +127,49 @@ export const Contacts: React.FC = () => {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Nome</Label>
-                <Input id="name" placeholder="Nome do contato" />
+                <Input 
+                  id="name" 
+                  placeholder="Nome do contato" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="email">E-mail</Label>
-                <Input id="email" type="email" placeholder="email@exemplo.com" />
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="email@exemplo.com" 
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="phone">Telefone</Label>
-                <Input id="phone" placeholder="(00) 00000-0000" />
+                <Input 
+                  id="phone" 
+                  placeholder="(00) 00000-0000" 
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="role">Cargo</Label>
-                <Input id="role" placeholder="Cargo do contato" />
+                <Input 
+                  id="role" 
+                  placeholder="Cargo do contato" 
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => setIsDialogOpen(false)}>Salvar</Button>
+              <Button onClick={handleCreateContact} disabled={saving || !formData.name}>
+                {saving ? 'Salvando...' : 'Salvar'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

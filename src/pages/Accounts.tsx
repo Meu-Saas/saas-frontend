@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { accountsAPI } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -18,13 +19,13 @@ import {
 import { Plus, Search, Building2, Star } from 'lucide-react';
 
 interface Account {
-  id: string;
+  id: number;
   name: string;
   segment: string | null;
   category_name: string | null;
   status: string;
-  potential: number | null;
-  kam_user_name: string | null;
+  opportunity_value: number;
+  kam_name: string | null;
   is_strategic: boolean;
 }
 
@@ -35,6 +36,13 @@ export const Accounts: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    cnpj: '',
+    segment: '',
+    category: '',
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadAccounts();
@@ -42,11 +50,33 @@ export const Accounts: React.FC = () => {
 
   const loadAccounts = async () => {
     try {
-      setLoading(false);
-      setAccounts([]);
+      const data = await accountsAPI.getAll();
+      setAccounts(data as unknown as Account[]);
     } catch (error) {
       console.error('Error loading accounts:', error);
+      setAccounts([]);
+    } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateAccount = async () => {
+    if (!formData.name) return;
+    
+    setSaving(true);
+    try {
+      await accountsAPI.create({
+        name: formData.name,
+        industry: formData.segment || undefined,
+        description: formData.cnpj ? `CNPJ: ${formData.cnpj}` : undefined,
+      });
+      setIsDialogOpen(false);
+      setFormData({ name: '', cnpj: '', segment: '', category: '' });
+      loadAccounts();
+    } catch (error) {
+      console.error('Error creating account:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -59,8 +89,8 @@ export const Accounts: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const formatCurrency = (value: number | null) => {
-    if (value === null) return '-';
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return '-';
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
@@ -111,21 +141,36 @@ export const Accounts: React.FC = () => {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Nome da Conta</Label>
-                <Input id="name" placeholder="Nome da empresa" />
+                <Input 
+                  id="name" 
+                  placeholder="Nome da empresa" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="cnpj">CNPJ</Label>
-                  <Input id="cnpj" placeholder="00.000.000/0001-00" />
+                  <Input 
+                    id="cnpj" 
+                    placeholder="00.000.000/0001-00" 
+                    value={formData.cnpj}
+                    onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="segment">Segmento</Label>
-                  <Input id="segment" placeholder="Tecnologia" />
+                  <Input 
+                    id="segment" 
+                    placeholder="Tecnologia" 
+                    value={formData.segment}
+                    onChange={(e) => setFormData({ ...formData, segment: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="category">Categoria</Label>
-                <Select>
+                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
@@ -142,7 +187,9 @@ export const Accounts: React.FC = () => {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => setIsDialogOpen(false)}>Salvar</Button>
+              <Button onClick={handleCreateAccount} disabled={saving || !formData.name}>
+                {saving ? 'Salvando...' : 'Salvar'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -223,9 +270,9 @@ export const Accounts: React.FC = () => {
                     <TableCell>
                       <Badge variant="outline">{account.category_name || '-'}</Badge>
                     </TableCell>
-                    <TableCell>{formatCurrency(account.potential)}</TableCell>
+                    <TableCell>{formatCurrency(account.opportunity_value)}</TableCell>
                     <TableCell>{getStatusBadge(account.status)}</TableCell>
-                    <TableCell>{account.kam_user_name || '-'}</TableCell>
+                    <TableCell>{account.kam_name || '-'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

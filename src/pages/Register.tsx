@@ -10,6 +10,7 @@ export const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [orgSlug, setOrgSlug] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -21,7 +22,7 @@ export const Register: React.FC = () => {
     setLoading(true);
 
     try {
-      await register({ email, password, full_name: fullName });
+      await register({ email, password, full_name: fullName, org_slug: orgSlug });
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Falha no cadastro');
@@ -47,6 +48,17 @@ export const Register: React.FC = () => {
                 placeholder="João Silva"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orgSlug">Código da Organização</Label>
+              <Input
+                id="orgSlug"
+                type="text"
+                placeholder="minha-empresa"
+                value={orgSlug}
+                onChange={(e) => setOrgSlug(e.target.value)}
                 required
               />
             </div>

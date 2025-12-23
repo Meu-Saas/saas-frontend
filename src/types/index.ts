@@ -14,6 +14,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   full_name: string;
+  org_slug: string;
 }
 
 export interface Token {

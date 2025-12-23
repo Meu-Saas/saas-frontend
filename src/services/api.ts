@@ -54,39 +54,73 @@ export const authAPI = {
   },
 };
 
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export const accountsAPI = {
   getAll: async (): Promise<Account[]> => {
-    const response = await api.get<Account[]>('/accounts');
-    return response.data;
+    const response = await api.get<PaginatedResponse<Account>>('/api/v1/accounts');
+    return response.data.items || [];
   },
 
   getById: async (id: string): Promise<Account> => {
-    const response = await api.get<Account>(`/accounts/${id}`);
+    const response = await api.get<Account>(`/api/v1/accounts/${id}`);
     return response.data;
   },
 
   create: async (data: CreateAccountRequest): Promise<Account> => {
-    const response = await api.post<Account>('/accounts', data);
+    const response = await api.post<Account>('/api/v1/accounts', data);
     return response.data;
   },
 
   update: async (id: string, data: Partial<CreateAccountRequest>): Promise<Account> => {
-    const response = await api.put<Account>(`/accounts/${id}`, data);
+    const response = await api.put<Account>(`/api/v1/accounts/${id}`, data);
     return response.data;
   },
 
   delete: async (id: string): Promise<void> => {
-    await api.delete(`/accounts/${id}`);
+    await api.delete(`/api/v1/accounts/${id}`);
   },
 
   getContacts: async (accountId: string): Promise<Contact[]> => {
-    const response = await api.get<Contact[]>(`/accounts/${accountId}/contacts`);
+    const response = await api.get<Contact[]>(`/api/v1/accounts/${accountId}/contacts`);
     return response.data;
   },
 
   createContact: async (accountId: string, data: CreateContactRequest): Promise<Contact> => {
-    const response = await api.post<Contact>(`/accounts/${accountId}/contacts`, data);
+    const response = await api.post<Contact>(`/api/v1/accounts/${accountId}/contacts`, data);
     return response.data;
+  },
+};
+
+export const contactsAPI = {
+  getAll: async (): Promise<Contact[]> => {
+    const response = await api.get<PaginatedResponse<Contact>>('/api/v1/contacts');
+    return response.data.items || [];
+  },
+
+  getById: async (id: string): Promise<Contact> => {
+    const response = await api.get<Contact>(`/api/v1/contacts/${id}`);
+    return response.data;
+  },
+
+  create: async (data: CreateContactRequest): Promise<Contact> => {
+    const response = await api.post<Contact>('/api/v1/contacts', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: Partial<CreateContactRequest>): Promise<Contact> => {
+    const response = await api.put<Contact>(`/api/v1/contacts/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/api/v1/contacts/${id}`);
   },
 };
 
