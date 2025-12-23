@@ -52,6 +52,14 @@ export const authAPI = {
     const response = await api.get<User>('/api/v1/auth/me');
     return response.data;
   },
+
+  forgotPassword: async (email: string): Promise<void> => {
+    await api.post('/api/v1/auth/forgot-password', { email });
+  },
+
+  resetPassword: async (token: string, new_password: string): Promise<void> => {
+    await api.post('/api/v1/auth/reset-password', { token, new_password });
+  },
 };
 
 interface PaginatedResponse<T> {
