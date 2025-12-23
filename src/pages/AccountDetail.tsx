@@ -36,6 +36,14 @@ import {
   Plus,
   DollarSign,
 } from 'lucide-react';
+import {
+  AnatomiaKAM,
+  DiagnosticoContexto,
+  MapaStakeholders,
+  WalletShare,
+  PlanoAcaoKAM,
+  RiscosConcorrencia,
+} from '../components/kam';
 
 interface Account {
   id: string;
@@ -337,8 +345,8 @@ export const AccountDetail: React.FC = () => {
             <CardContent>
               {account.is_strategic ? (
                 <Tabs defaultValue="anatomia">
-                  <TabsList>
-                    <TabsTrigger value="anatomia">Anatomia KAM</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 lg:w-auto">
+                    <TabsTrigger value="anatomia">Anatomia</TabsTrigger>
                     <TabsTrigger value="diagnostico">Diagnostico</TabsTrigger>
                     <TabsTrigger value="stakeholders">Stakeholders</TabsTrigger>
                     <TabsTrigger value="wallet">Wallet Share</TabsTrigger>
@@ -346,35 +354,22 @@ export const AccountDetail: React.FC = () => {
                     <TabsTrigger value="riscos">Riscos</TabsTrigger>
                   </TabsList>
                   <TabsContent value="anatomia" className="mt-4">
-                    <p className="text-muted-foreground">
-                      Avalie os pilares KAM da conta: Estrategia, Criacao de Valor,
-                      Relacionamento Executivo, Governanca, Entregas, KPIs.
-                    </p>
+                    <AnatomiaKAM accountId={account.id} />
                   </TabsContent>
                   <TabsContent value="diagnostico" className="mt-4">
-                    <p className="text-muted-foreground">
-                      Registre o contexto, dores, desafios e analise SWOT da conta.
-                    </p>
+                    <DiagnosticoContexto accountId={account.id} />
                   </TabsContent>
                   <TabsContent value="stakeholders" className="mt-4">
-                    <p className="text-muted-foreground">
-                      Mapeie os stakeholders com nivel de poder, apoio e relacionamento.
-                    </p>
+                    <MapaStakeholders accountId={account.id} />
                   </TabsContent>
                   <TabsContent value="wallet" className="mt-4">
-                    <p className="text-muted-foreground">
-                      Analise o potencial vs participacao por linha de negocio.
-                    </p>
+                    <WalletShare accountId={account.id} />
                   </TabsContent>
                   <TabsContent value="acoes" className="mt-4">
-                    <p className="text-muted-foreground">
-                      Gerencie as acoes estrategicas do plano KAM.
-                    </p>
+                    <PlanoAcaoKAM accountId={account.id} />
                   </TabsContent>
                   <TabsContent value="riscos" className="mt-4">
-                    <p className="text-muted-foreground">
-                      Identifique riscos e analise a concorrencia.
-                    </p>
+                    <RiscosConcorrencia accountId={account.id} />
                   </TabsContent>
                 </Tabs>
               ) : (
