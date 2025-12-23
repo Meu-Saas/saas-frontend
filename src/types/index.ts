@@ -115,16 +115,16 @@ export interface CreateMeetingRequest {
 }
 
 export interface CreateOpportunityRequest {
-  account_id: string;
+  account_id: number;
   title: string;
   description?: string;
   value?: number;
-  status?: OpportunityStatus;
+  stage_id?: number;
   expected_close_date?: string;
 }
 
 export interface CreateContactRequest {
-  account_id: string;
+  account_id?: number;
   name: string;
   role?: string;
   email?: string;

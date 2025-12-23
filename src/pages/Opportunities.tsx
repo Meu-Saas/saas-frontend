@@ -130,7 +130,7 @@ export const Opportunities: React.FC = () => {
         expected_close_date: formData.expected_close_date || undefined,
         description: formData.description || undefined,
         stage_id: formData.stage_id ? parseInt(formData.stage_id) : undefined,
-      });
+      } as any);
       setIsDialogOpen(false);
       setFormData({ title: '', value: '', expected_close_date: '', description: '', account_id: '', stage_id: '' });
       loadData();
@@ -146,10 +146,6 @@ export const Opportunities: React.FC = () => {
       opp.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       opp.account_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const getOpportunitiesByStage = (stageId: number) => {
-    return filteredOpportunities.filter((opp) => opp.stage_id === stageId);
-  };
 
   const formatCurrency = (value: number | null) => {
     if (value === null) return '-';
