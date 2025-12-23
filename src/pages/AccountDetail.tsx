@@ -43,6 +43,7 @@ import {
   WalletShare,
   PlanoAcaoKAM,
   RiscosConcorrencia,
+  MatrizValor,
 } from '../components/kam';
 
 interface Account {
@@ -385,20 +386,7 @@ export const AccountDetail: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="matriz-valor" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Matriz de Valor</CardTitle>
-              <CardDescription>
-                Analise os atributos de valor e visualize o organograma de stakeholders
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">
-                Configure os atributos de valor (importancia vs desempenho) e visualize
-                as zonas de valor (Imbativel, Competitivo, Vulneravel, Irrelevante).
-              </p>
-            </CardContent>
-          </Card>
+          <MatrizValor accountId={account.id} />
         </TabsContent>
 
         <TabsContent value="contatos" className="mt-6">

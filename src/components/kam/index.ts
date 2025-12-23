@@ -6,3 +6,5 @@ export {
   PlanoAcaoKAM,
   RiscosConcorrencia,
 } from './PlanoKAM';
+
+export { MatrizValor } from './MatrizValor';
