@@ -10,6 +10,7 @@ import { Contacts } from './pages/Contacts';
 import { Opportunities } from './pages/Opportunities';
 import { Activities } from './pages/Activities';
 import { Prioritization } from './pages/Prioritization';
+import { Reports } from './pages/Reports';
 import { Admin } from './pages/Admin';
 import './App.css';
 
@@ -75,6 +76,7 @@ function AppRoutes() {
         <Route path="/opportunities" element={<Opportunities />} />
         <Route path="/activities" element={<Activities />} />
         <Route path="/prioritization" element={<Prioritization />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/admin/:section" element={<Admin />} />
       </Route>
