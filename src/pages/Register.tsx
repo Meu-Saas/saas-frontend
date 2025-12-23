@@ -25,7 +25,14 @@ export const Register: React.FC = () => {
       await register({ email, password, full_name: fullName, org_slug: orgSlug });
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Falha no cadastro');
+      const detail = err.response?.data?.detail;
+      if (Array.isArray(detail)) {
+        setError(detail.map((e: any) => e.msg || e).join(', '));
+      } else if (typeof detail === 'string') {
+        setError(detail);
+      } else {
+        setError('Falha no cadastro');
+      }
     } finally {
       setLoading(false);
     }
