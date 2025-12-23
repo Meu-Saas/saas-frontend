@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { activitiesAPI, adminAPI, accountsAPI, Activity } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -31,49 +32,91 @@ import {
 } from '../components/ui/select';
 import { Plus, Search, Calendar, Clock, CheckCircle2, AlertCircle, Building2 } from 'lucide-react';
 
-interface Activity {
-  id: string;
-  title: string;
-  description: string | null;
-  type_id: string;
-  type_name?: string;
-  account_id: string;
-  account_name?: string;
-  opportunity_id: string | null;
-  scheduled_date: string;
-  scheduled_time: string | null;
-  status: 'pending' | 'completed' | 'cancelled';
-  completed_at: string | null;
-  notes: string | null;
-  created_at: string;
+interface ActivityType {
+  id: number;
+  name: string;
+  icon?: string;
+  color?: string;
 }
 
-const activityTypes = [
-  { id: '1', name: 'Ligacao', icon: '📞' },
-  { id: '2', name: 'Reuniao', icon: '👥' },
-  { id: '3', name: 'E-mail', icon: '📧' },
-  { id: '4', name: 'Tarefa', icon: '📋' },
-  { id: '5', name: 'Visita', icon: '🏢' },
-];
+interface Account {
+  id: number;
+  name: string;
+}
 
 export const Activities: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [formData, setFormData] = useState({
+    title: '',
+    type_id: '',
+    account_id: '',
+    scheduled_date: '',
+    scheduled_time: '',
+    description: '',
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadActivities();
+    loadData();
   }, []);
 
-  const loadActivities = async () => {
+  const loadData = async () => {
     try {
-      setLoading(false);
-      setActivities([]);
+      const [activitiesData, typesData, accountsData] = await Promise.all([
+        activitiesAPI.getAll(),
+        adminAPI.getActivityTypes(),
+        accountsAPI.getAll(),
+      ]);
+      setActivities(activitiesData);
+      setActivityTypes(typesData);
+      setAccounts(accountsData as unknown as Account[]);
     } catch (error) {
-      console.error('Error loading activities:', error);
+      console.error('Error loading data:', error);
+    } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateActivity = async () => {
+    if (!formData.title) return;
+    
+    setSaving(true);
+    try {
+      const scheduled_at = formData.scheduled_date && formData.scheduled_time 
+        ? `${formData.scheduled_date}T${formData.scheduled_time}:00`
+        : formData.scheduled_date 
+          ? `${formData.scheduled_date}T09:00:00`
+          : undefined;
+      
+      await activitiesAPI.create({
+        title: formData.title,
+        type_id: formData.type_id ? parseInt(formData.type_id) : undefined,
+        account_id: formData.account_id ? parseInt(formData.account_id) : undefined,
+        scheduled_at,
+        description: formData.description || undefined,
+      });
+      setIsDialogOpen(false);
+      setFormData({ title: '', type_id: '', account_id: '', scheduled_date: '', scheduled_time: '', description: '' });
+      loadData();
+    } catch (error) {
+      console.error('Error creating activity:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCompleteActivity = async (id: number) => {
+    try {
+      await activitiesAPI.complete(id);
+      loadData();
+    } catch (error) {
+      console.error('Error completing activity:', error);
     }
   };
 
@@ -86,19 +129,26 @@ export const Activities: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const getScheduledDate = (activity: Activity) => {
+    if (!activity.scheduled_at) return '';
+    return activity.scheduled_at.split('T')[0];
+  };
+
   const todayActivities = filteredActivities.filter((a) => {
     const today = new Date().toISOString().split('T')[0];
-    return a.scheduled_date === today && a.status === 'pending';
+    return getScheduledDate(a) === today && a.status === 'pending';
   });
 
   const overdueActivities = filteredActivities.filter((a) => {
     const today = new Date().toISOString().split('T')[0];
-    return a.scheduled_date < today && a.status === 'pending';
+    const scheduledDate = getScheduledDate(a);
+    return scheduledDate && scheduledDate < today && a.status === 'pending';
   });
 
   const upcomingActivities = filteredActivities.filter((a) => {
     const today = new Date().toISOString().split('T')[0];
-    return a.scheduled_date > today && a.status === 'pending';
+    const scheduledDate = getScheduledDate(a);
+    return scheduledDate && scheduledDate > today && a.status === 'pending';
   });
 
   if (loading) {
@@ -134,19 +184,39 @@ export const Activities: React.FC = () => {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="title">Titulo</Label>
-                <Input id="title" placeholder="Titulo da atividade" />
+                <Label htmlFor="title">Titulo *</Label>
+                <Input 
+                  id="title" 
+                  placeholder="Titulo da atividade" 
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="type">Tipo</Label>
-                <Select>
+                <Select value={formData.type_id} onValueChange={(value) => setFormData({ ...formData, type_id: value })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
                     {activityTypes.map((type) => (
-                      <SelectItem key={type.id} value={type.id}>
-                        {type.icon} {type.name}
+                      <SelectItem key={type.id} value={String(type.id)}>
+                        {type.icon || '📋'} {type.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="account">Conta</Label>
+                <Select value={formData.account_id} onValueChange={(value) => setFormData({ ...formData, account_id: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a conta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((account) => (
+                      <SelectItem key={account.id} value={String(account.id)}>
+                        {account.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -155,23 +225,40 @@ export const Activities: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="date">Data</Label>
-                  <Input id="date" type="date" />
+                  <Input 
+                    id="date" 
+                    type="date" 
+                    value={formData.scheduled_date}
+                    onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="time">Hora</Label>
-                  <Input id="time" type="time" />
+                  <Input 
+                    id="time" 
+                    type="time" 
+                    value={formData.scheduled_time}
+                    onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="description">Descricao</Label>
-                <Input id="description" placeholder="Descricao da atividade" />
+                <Input 
+                  id="description" 
+                  placeholder="Descricao da atividade" 
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => setIsDialogOpen(false)}>Salvar</Button>
+              <Button onClick={handleCreateActivity} disabled={saving || !formData.title}>
+                {saving ? 'Salvando...' : 'Salvar'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -254,6 +341,7 @@ export const Activities: React.FC = () => {
             activities={todayActivities}
             emptyMessage="Nenhuma atividade para hoje"
             onAddClick={() => setIsDialogOpen(true)}
+            onComplete={handleCompleteActivity}
           />
         </TabsContent>
 
@@ -262,6 +350,7 @@ export const Activities: React.FC = () => {
             activities={overdueActivities}
             emptyMessage="Nenhuma atividade atrasada"
             onAddClick={() => setIsDialogOpen(true)}
+            onComplete={handleCompleteActivity}
           />
         </TabsContent>
 
@@ -270,6 +359,7 @@ export const Activities: React.FC = () => {
             activities={upcomingActivities}
             emptyMessage="Nenhuma atividade futura"
             onAddClick={() => setIsDialogOpen(true)}
+            onComplete={handleCompleteActivity}
           />
         </TabsContent>
 
@@ -279,6 +369,7 @@ export const Activities: React.FC = () => {
             emptyMessage="Nenhuma atividade encontrada"
             onAddClick={() => setIsDialogOpen(true)}
             showStatus
+            onComplete={handleCompleteActivity}
           />
         </TabsContent>
       </Tabs>
@@ -291,6 +382,7 @@ interface ActivityListProps {
   emptyMessage: string;
   onAddClick: () => void;
   showStatus?: boolean;
+  onComplete?: (id: number) => void;
 }
 
 const ActivityList: React.FC<ActivityListProps> = ({
@@ -298,6 +390,7 @@ const ActivityList: React.FC<ActivityListProps> = ({
   emptyMessage,
   onAddClick,
   showStatus = false,
+  onComplete,
 }) => {
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -308,6 +401,18 @@ const ActivityList: React.FC<ActivityListProps> = ({
       default:
         return <Badge variant="outline">Pendente</Badge>;
     }
+  };
+
+  const formatScheduledAt = (scheduled_at?: string) => {
+    if (!scheduled_at) return '-';
+    const date = new Date(scheduled_at);
+    return date.toLocaleDateString('pt-BR');
+  };
+
+  const formatScheduledTime = (scheduled_at?: string) => {
+    if (!scheduled_at) return null;
+    const date = new Date(scheduled_at);
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   };
 
   if (activities.length === 0) {
@@ -357,10 +462,10 @@ const ActivityList: React.FC<ActivityListProps> = ({
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    {new Date(activity.scheduled_date).toLocaleDateString('pt-BR')}
-                    {activity.scheduled_time && (
+                    {formatScheduledAt(activity.scheduled_at)}
+                    {formatScheduledTime(activity.scheduled_at) && (
                       <span className="text-muted-foreground">
-                        {activity.scheduled_time}
+                        {formatScheduledTime(activity.scheduled_at)}
                       </span>
                     )}
                   </div>
@@ -368,9 +473,11 @@ const ActivityList: React.FC<ActivityListProps> = ({
                 {showStatus && <TableCell>{getStatusBadge(activity.status)}</TableCell>}
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <Button variant="outline" size="sm">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Button>
+                    {activity.status === 'pending' && onComplete && (
+                      <Button variant="outline" size="sm" onClick={() => onComplete(activity.id)}>
+                        <CheckCircle2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

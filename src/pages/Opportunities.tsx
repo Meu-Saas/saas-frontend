@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { opportunitiesAPI, adminAPI, accountsAPI } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -22,16 +23,24 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { Plus, Search, DollarSign, Calendar, Building2 } from 'lucide-react';
 
 interface Opportunity {
-  id: string;
+  id: number;
   title: string;
   description: string | null;
   value: number | null;
-  stage_id: string;
+  stage_id: number | null;
   stage_name?: string;
-  account_id: string;
+  stage_color?: string;
+  account_id: number;
   account_name?: string;
   expected_close_date: string | null;
   probability: number;
@@ -39,40 +48,96 @@ interface Opportunity {
 }
 
 interface PipelineStage {
-  id: string;
+  id: number;
   name: string;
   color: string;
-  order_index: number;
+  sort_order: number;
 }
 
-const defaultStages: PipelineStage[] = [
-  { id: '1', name: 'Lead', color: 'bg-gray-500', order_index: 1 },
-  { id: '2', name: 'Qualificado', color: 'bg-blue-500', order_index: 2 },
-  { id: '3', name: 'Proposta', color: 'bg-yellow-500', order_index: 3 },
-  { id: '4', name: 'Negociacao', color: 'bg-orange-500', order_index: 4 },
-  { id: '5', name: 'Ganho', color: 'bg-green-500', order_index: 5 },
-  { id: '6', name: 'Perdido', color: 'bg-red-500', order_index: 6 },
-];
+interface Account {
+  id: number;
+  name: string;
+}
+
+interface KanbanColumn {
+  stage: PipelineStage;
+  opportunities: Opportunity[];
+  total_value: number;
+  count: number;
+}
+
+interface KanbanBoard {
+  columns: KanbanColumn[];
+  total_value: number;
+  total_count: number;
+}
 
 export const Opportunities: React.FC = () => {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [stages] = useState<PipelineStage[]>(defaultStages);
+  const [kanbanBoard, setKanbanBoard] = useState<KanbanBoard | null>(null);
+  const [stages, setStages] = useState<PipelineStage[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
+  const [formData, setFormData] = useState({
+    title: '',
+    value: '',
+    expected_close_date: '',
+    description: '',
+    account_id: '',
+    stage_id: '',
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadOpportunities();
+    loadData();
   }, []);
 
-  const loadOpportunities = async () => {
+  const loadData = async () => {
     try {
-      setLoading(false);
-      setOpportunities([]);
+      const [kanbanData, stagesData, accountsData] = await Promise.all([
+        opportunitiesAPI.getKanban(),
+        adminAPI.getPipelineStages(),
+        accountsAPI.getAll(),
+      ]);
+      setKanbanBoard(kanbanData);
+      setStages(stagesData);
+      setAccounts(accountsData as unknown as Account[]);
+      
+      const allOpps: Opportunity[] = [];
+      kanbanData.columns?.forEach((col: KanbanColumn) => {
+        allOpps.push(...col.opportunities);
+      });
+      setOpportunities(allOpps);
     } catch (error) {
-      console.error('Error loading opportunities:', error);
+      console.error('Error loading data:', error);
+    } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateOpportunity = async () => {
+    if (!formData.title || !formData.account_id) return;
+    
+    setSaving(true);
+    try {
+      await opportunitiesAPI.create({
+        title: formData.title,
+        account_id: parseInt(formData.account_id),
+        value: formData.value ? parseFloat(formData.value) : undefined,
+        expected_close_date: formData.expected_close_date || undefined,
+        description: formData.description || undefined,
+        stage_id: formData.stage_id ? parseInt(formData.stage_id) : undefined,
+      });
+      setIsDialogOpen(false);
+      setFormData({ title: '', value: '', expected_close_date: '', description: '', account_id: '', stage_id: '' });
+      loadData();
+    } catch (error) {
+      console.error('Error creating opportunity:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -82,7 +147,7 @@ export const Opportunities: React.FC = () => {
       opp.account_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getOpportunitiesByStage = (stageId: string) => {
+  const getOpportunitiesByStage = (stageId: number) => {
     return filteredOpportunities.filter((opp) => opp.stage_id === stageId);
   };
 
@@ -91,9 +156,7 @@ export const Opportunities: React.FC = () => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const totalPipelineValue = opportunities
-    .filter((opp) => opp.stage_id !== '6')
-    .reduce((sum, opp) => sum + (opp.value || 0), 0);
+  const totalPipelineValue = kanbanBoard?.total_value || opportunities.reduce((sum, opp) => sum + (opp.value || 0), 0);
 
   if (loading) {
     return (
@@ -129,27 +192,80 @@ export const Opportunities: React.FC = () => {
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="title">Titulo</Label>
-                  <Input id="title" placeholder="Titulo da oportunidade" />
+                  <Label htmlFor="title">Titulo *</Label>
+                  <Input 
+                    id="title" 
+                    placeholder="Titulo da oportunidade" 
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="account">Conta *</Label>
+                  <Select value={formData.account_id} onValueChange={(value) => setFormData({ ...formData, account_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a conta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {accounts.map((account) => (
+                        <SelectItem key={account.id} value={String(account.id)}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="stage">Etapa</Label>
+                  <Select value={formData.stage_id} onValueChange={(value) => setFormData({ ...formData, stage_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((stage) => (
+                        <SelectItem key={stage.id} value={String(stage.id)}>
+                          {stage.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="value">Valor</Label>
-                  <Input id="value" type="number" placeholder="0.00" />
+                  <Input 
+                    id="value" 
+                    type="number" 
+                    placeholder="0.00" 
+                    value={formData.value}
+                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="close_date">Data Prevista de Fechamento</Label>
-                  <Input id="close_date" type="date" />
+                  <Input 
+                    id="close_date" 
+                    type="date" 
+                    value={formData.expected_close_date}
+                    onChange={(e) => setFormData({ ...formData, expected_close_date: e.target.value })}
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="description">Descricao</Label>
-                  <Input id="description" placeholder="Descricao da oportunidade" />
+                  <Input 
+                    id="description" 
+                    placeholder="Descricao da oportunidade" 
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={() => setIsDialogOpen(false)}>Salvar</Button>
+                <Button onClick={handleCreateOpportunity} disabled={saving || !formData.title || !formData.account_id}>
+                  {saving ? 'Salvando...' : 'Salvar'}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -176,37 +292,35 @@ export const Opportunities: React.FC = () => {
 
         <TabsContent value="kanban" className="mt-4">
           <div className="flex gap-4 overflow-x-auto pb-4">
-            {stages.filter(s => s.id !== '6').map((stage) => (
-              <div key={stage.id} className="flex-shrink-0 w-72">
+            {kanbanBoard?.columns?.map((column) => (
+              <div key={column.stage.id} className="flex-shrink-0 w-72">
                 <Card>
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${stage.color}`} />
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: column.stage.color || '#6B7280' }}
+                        />
                         <CardTitle className="text-sm font-medium">
-                          {stage.name}
+                          {column.stage.name}
                         </CardTitle>
                       </div>
                       <Badge variant="secondary">
-                        {getOpportunitiesByStage(stage.id).length}
+                        {column.count}
                       </Badge>
                     </div>
                     <CardDescription className="text-xs">
-                      {formatCurrency(
-                        getOpportunitiesByStage(stage.id).reduce(
-                          (sum, opp) => sum + (opp.value || 0),
-                          0
-                        )
-                      )}
+                      {formatCurrency(column.total_value)}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {getOpportunitiesByStage(stage.id).length === 0 ? (
+                    {column.opportunities.length === 0 ? (
                       <div className="text-center py-4 text-sm text-muted-foreground">
                         Nenhuma oportunidade
                       </div>
                     ) : (
-                      getOpportunitiesByStage(stage.id).map((opp) => (
+                      column.opportunities.map((opp) => (
                         <Card
                           key={opp.id}
                           className="cursor-pointer hover:shadow-md transition-shadow"

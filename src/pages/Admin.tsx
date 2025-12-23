@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { adminAPI } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -23,6 +24,13 @@ import {
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import {
   Plus,
   Users,
@@ -171,12 +179,65 @@ export const Admin: React.FC = () => {
   );
 };
 
+interface User {
+  id: number;
+  full_name: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+}
+
 const UsersSection: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    role: 'kam',
+  });
+  const [saving, setSaving] = useState(false);
 
-  const users = [
-    { id: '1', name: 'Admin', email: 'admin@empresa.com', role: 'admin', is_active: true },
-  ];
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      const data = await adminAPI.getUsers();
+      setUsers(data);
+    } catch (error) {
+      console.error('Error loading users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!formData.full_name || !formData.email || !formData.password) return;
+    
+    setSaving(true);
+    try {
+      await adminAPI.createUser({
+        full_name: formData.full_name,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+      });
+      setIsDialogOpen(false);
+      setFormData({ full_name: '', email: '', password: '', role: 'kam' });
+      loadUsers();
+    } catch (error) {
+      console.error('Error creating user:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Carregando...</div>;
+  }
 
   return (
     <Card>
@@ -199,23 +260,55 @@ const UsersSection: React.FC = () => {
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input id="name" placeholder="Nome completo" />
+                <Label htmlFor="name">Nome *</Label>
+                <Input 
+                  id="name" 
+                  placeholder="Nome completo" 
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input id="email" type="email" placeholder="email@empresa.com" />
+                <Label htmlFor="email">E-mail *</Label>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="email@empresa.com" 
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Senha *</Label>
+                <Input 
+                  id="password" 
+                  type="password" 
+                  placeholder="Senha" 
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="role">Perfil</Label>
-                <Input id="role" placeholder="admin, kam, gestor" />
+                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o perfil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="kam">KAM</SelectItem>
+                    <SelectItem value="gestor">Gestor</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={() => setIsDialogOpen(false)}>Salvar</Button>
+              <Button onClick={handleCreateUser} disabled={saving || !formData.full_name || !formData.email || !formData.password}>
+                {saving ? 'Salvando...' : 'Salvar'}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -234,7 +327,7 @@ const UsersSection: React.FC = () => {
           <TableBody>
             {users.map((user) => (
               <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell className="font-medium">{user.full_name}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
                   <Badge variant="outline">{user.role}</Badge>
