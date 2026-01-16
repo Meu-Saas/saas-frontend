@@ -134,27 +134,27 @@ export const contactsAPI = {
 
 export const meetingsAPI = {
   getAll: async (): Promise<Meeting[]> => {
-    const response = await api.get<Meeting[]>('/meetings');
-    return response.data;
+    const response = await api.get<PaginatedResponse<Meeting>>('/api/v1/meetings');
+    return response.data.items || [];
   },
 
   getById: async (id: string): Promise<Meeting> => {
-    const response = await api.get<Meeting>(`/meetings/${id}`);
+    const response = await api.get<Meeting>(`/api/v1/meetings/${id}`);
     return response.data;
   },
 
   create: async (data: CreateMeetingRequest): Promise<Meeting> => {
-    const response = await api.post<Meeting>('/meetings', data);
+    const response = await api.post<Meeting>('/api/v1/meetings', data);
     return response.data;
   },
 
   getInsights: async (meetingId: string): Promise<AIInsight> => {
-    const response = await api.get<AIInsight>(`/meetings/${meetingId}/insights`);
+    const response = await api.get<AIInsight>(`/api/v1/meetings/${meetingId}/insights`);
     return response.data;
   },
 
   getByAccount: async (accountId: string): Promise<Meeting[]> => {
-    const response = await api.get<Meeting[]>(`/meetings/account/${accountId}`);
+    const response = await api.get<Meeting[]>(`/api/v1/accounts/${accountId}/meetings`);
     return response.data;
   },
 };
@@ -277,6 +277,20 @@ export const adminAPI = {
     return response.data;
   },
 
+  createAccountCategory: async (data: { name: string; description?: string; color?: string }) => {
+    const response = await api.post('/api/v1/admin/account-categories', data);
+    return response.data;
+  },
+
+  updateAccountCategory: async (id: number, data: { name?: string; description?: string; color?: string; is_active?: boolean }) => {
+    const response = await api.put(`/api/v1/admin/account-categories/${id}`, data);
+    return response.data;
+  },
+
+  deleteAccountCategory: async (id: number) => {
+    await api.delete(`/api/v1/admin/account-categories/${id}`);
+  },
+
   getPipelineStages: async () => {
     const response = await api.get('/api/v1/admin/pipeline-stages');
     return response.data;
@@ -287,9 +301,32 @@ export const adminAPI = {
     return response.data;
   },
 
+  updatePipelineStage: async (id: number, data: { name?: string; color?: string; probability?: number; sort_order?: number; is_active?: boolean }) => {
+    const response = await api.put(`/api/v1/admin/pipeline-stages/${id}`, data);
+    return response.data;
+  },
+
+  deletePipelineStage: async (id: number) => {
+    await api.delete(`/api/v1/admin/pipeline-stages/${id}`);
+  },
+
   getValueZones: async () => {
     const response = await api.get('/api/v1/admin/value-zones');
     return response.data;
+  },
+
+  createValueZone: async (data: { name: string; description?: string; color?: string; min_importance?: number; max_importance?: number; min_performance?: number; max_performance?: number }) => {
+    const response = await api.post('/api/v1/admin/value-zones', data);
+    return response.data;
+  },
+
+  updateValueZone: async (id: number, data: { name?: string; description?: string; color?: string; is_active?: boolean }) => {
+    const response = await api.put(`/api/v1/admin/value-zones/${id}`, data);
+    return response.data;
+  },
+
+  deleteValueZone: async (id: number) => {
+    await api.delete(`/api/v1/admin/value-zones/${id}`);
   },
 
   getActivityTypes: async () => {
@@ -302,13 +339,41 @@ export const adminAPI = {
     return response.data;
   },
 
+  updateActivityType: async (id: number, data: { name?: string; icon?: string; color?: string; sort_order?: number; is_active?: boolean }) => {
+    const response = await api.put(`/api/v1/admin/activity-types/${id}`, data);
+    return response.data;
+  },
+
+  deleteActivityType: async (id: number) => {
+    await api.delete(`/api/v1/admin/activity-types/${id}`);
+  },
+
   getPrioritizationCriteria: async () => {
     const response = await api.get('/api/v1/admin/prioritization-criteria');
     return response.data;
   },
 
+  createPrioritizationCriteria: async (data: { name: string; description?: string; weight: number }) => {
+    const response = await api.post('/api/v1/admin/prioritization-criteria', data);
+    return response.data;
+  },
+
+  updatePrioritizationCriteria: async (id: number, data: { name?: string; description?: string; weight?: number; is_active?: boolean }) => {
+    const response = await api.put(`/api/v1/admin/prioritization-criteria/${id}`, data);
+    return response.data;
+  },
+
+  deletePrioritizationCriteria: async (id: number) => {
+    await api.delete(`/api/v1/admin/prioritization-criteria/${id}`);
+  },
+
   getAbcThresholds: async () => {
     const response = await api.get('/api/v1/admin/abc-thresholds');
+    return response.data;
+  },
+
+  updateAbcThresholds: async (data: { a_min: number; b_min: number }) => {
+    const response = await api.put('/api/v1/admin/abc-thresholds', data);
     return response.data;
   },
 
@@ -319,6 +384,274 @@ export const adminAPI = {
 
   createUser: async (data: { email: string; password: string; full_name: string; role: string }) => {
     const response = await api.post('/api/v1/admin/users', data);
+    return response.data;
+  },
+
+  updateUser: async (id: number, data: { full_name?: string; role?: string; is_active?: boolean }) => {
+    const response = await api.put(`/api/v1/admin/users/${id}`, data);
+    return response.data;
+  },
+
+  deleteUser: async (id: number) => {
+    await api.delete(`/api/v1/admin/users/${id}`);
+  },
+};
+
+export const dashboardAPI = {
+  getStats: async () => {
+    const response = await api.get('/api/v1/dashboard/stats');
+    return response.data;
+  },
+
+  getPipeline: async () => {
+    const response = await api.get('/api/v1/dashboard/pipeline');
+    return response.data;
+  },
+
+  getTopAccounts: async () => {
+    const response = await api.get('/api/v1/dashboard/top-accounts');
+    return response.data;
+  },
+
+  getTodayActivities: async () => {
+    const response = await api.get('/api/v1/activities/today');
+    return response.data;
+  },
+};
+
+export const prioritizationAPI = {
+  getAccounts: async () => {
+    const response = await api.get('/api/v1/prioritization/accounts');
+    return response.data;
+  },
+
+  getCriteria: async () => {
+    const response = await api.get('/api/v1/prioritization/criteria');
+    return response.data;
+  },
+
+  getThresholds: async () => {
+    const response = await api.get('/api/v1/prioritization/thresholds');
+    return response.data;
+  },
+
+  updateAccountScores: async (accountId: number, scores: { criteria_id: number; score: number }[]) => {
+    const response = await api.put(`/api/v1/prioritization/accounts/${accountId}/scores`, { scores });
+    return response.data;
+  },
+
+  recalculateAll: async () => {
+    const response = await api.post('/api/v1/prioritization/recalculate');
+    return response.data;
+  },
+};
+
+export const reportsAPI = {
+  getPipelineReport: async (filters?: { date_range?: string; kam_id?: number; segment?: string; category?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.date_range) params.append('date_range', filters.date_range);
+    if (filters?.kam_id) params.append('kam_id', String(filters.kam_id));
+    if (filters?.segment) params.append('segment', filters.segment);
+    if (filters?.category) params.append('category', filters.category);
+    const response = await api.get(`/api/v1/reports/pipeline?${params.toString()}`);
+    return response.data;
+  },
+
+  getForecastReport: async (filters?: { date_range?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.date_range) params.append('date_range', filters.date_range);
+    const response = await api.get(`/api/v1/reports/forecast?${params.toString()}`);
+    return response.data;
+  },
+
+  getActivitiesReport: async (filters?: { date_range?: string; kam_id?: number }) => {
+    const params = new URLSearchParams();
+    if (filters?.date_range) params.append('date_range', filters.date_range);
+    if (filters?.kam_id) params.append('kam_id', String(filters.kam_id));
+    const response = await api.get(`/api/v1/reports/activities?${params.toString()}`);
+    return response.data;
+  },
+
+  getAccountHealthReport: async (filters?: { segment?: string; category?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.segment) params.append('segment', filters.segment);
+    if (filters?.category) params.append('category', filters.category);
+    const response = await api.get(`/api/v1/reports/account-health?${params.toString()}`);
+    return response.data;
+  },
+
+  getValueStakeholderReport: async () => {
+    const response = await api.get('/api/v1/reports/value-stakeholder');
+    return response.data;
+  },
+
+  getKamPlanReport: async () => {
+    const response = await api.get('/api/v1/reports/kam-plan');
+    return response.data;
+  },
+
+  exportReport: async (reportType: string, format: 'csv' | 'xlsx' | 'pdf') => {
+    const response = await api.get(`/api/v1/reports/export/${reportType}?format=${format}`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+};
+
+export const kamPlanAPI = {
+  getPillars: async (accountId: string) => {
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/pillars`);
+    return response.data;
+  },
+
+  updatePillar: async (accountId: string, pillarId: number, data: { maturity_level?: number; notes?: string }) => {
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/pillars/${pillarId}`, data);
+    return response.data;
+  },
+
+  getDiagnostic: async (accountId: string) => {
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/diagnostic`);
+    return response.data;
+  },
+
+  updateDiagnostic: async (accountId: string, data: { current_situation?: string; strategic_objectives?: string; initiatives?: string; swot?: object }) => {
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/diagnostic`, data);
+    return response.data;
+  },
+
+  getPains: async (accountId: string) => {
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/pains`);
+    return response.data;
+  },
+
+  createPain: async (accountId: string, data: { description: string; impact: string; priority: string }) => {
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/pains`, data);
+    return response.data;
+  },
+
+  updatePain: async (accountId: string, painId: number, data: { description?: string; impact?: string; priority?: string }) => {
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/pains/${painId}`, data);
+    return response.data;
+  },
+
+  deletePain: async (accountId: string, painId: number) => {
+    await api.delete(`/api/v1/kam-plan/${accountId}/pains/${painId}`);
+  },
+
+  getStakeholders: async (accountId: string) => {
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/stakeholders`);
+    return response.data;
+  },
+
+  createStakeholder: async (accountId: string, data: { contact_id?: number; name: string; role?: string; power_level: number; support_level: number; relationship_level: number; engagement_strategy?: string }) => {
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/stakeholders`, data);
+    return response.data;
+  },
+
+  updateStakeholder: async (accountId: string, stakeholderId: number, data: { power_level?: number; support_level?: number; relationship_level?: number; engagement_strategy?: string }) => {
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/stakeholders/${stakeholderId}`, data);
+    return response.data;
+  },
+
+  deleteStakeholder: async (accountId: string, stakeholderId: number) => {
+    await api.delete(`/api/v1/kam-plan/${accountId}/stakeholders/${stakeholderId}`);
+  },
+
+  getWalletShare: async (accountId: string) => {
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/wallet-share`);
+    return response.data;
+  },
+
+  createWalletShareItem: async (accountId: string, data: { business_line: string; our_revenue: number; total_potential: number }) => {
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/wallet-share`, data);
+    return response.data;
+  },
+
+  updateWalletShareItem: async (accountId: string, itemId: number, data: { business_line?: string; our_revenue?: number; total_potential?: number }) => {
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/wallet-share/${itemId}`, data);
+    return response.data;
+  },
+
+  deleteWalletShareItem: async (accountId: string, itemId: number) => {
+    await api.delete(`/api/v1/kam-plan/${accountId}/wallet-share/${itemId}`);
+  },
+
+  getActions: async (accountId: string) => {
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/actions`);
+    return response.data;
+  },
+
+  createAction: async (accountId: string, data: { title: string; description?: string; responsible?: string; due_date?: string; status?: string }) => {
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/actions`, data);
+    return response.data;
+  },
+
+  updateAction: async (accountId: string, actionId: number, data: { title?: string; description?: string; responsible?: string; due_date?: string; status?: string }) => {
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/actions/${actionId}`, data);
+    return response.data;
+  },
+
+  deleteAction: async (accountId: string, actionId: number) => {
+    await api.delete(`/api/v1/kam-plan/${accountId}/actions/${actionId}`);
+  },
+
+  getRisks: async (accountId: string) => {
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/risks`);
+    return response.data;
+  },
+
+  createRisk: async (accountId: string, data: { description: string; type: string; probability: string; impact: string; mitigation?: string }) => {
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/risks`, data);
+    return response.data;
+  },
+
+  updateRisk: async (accountId: string, riskId: number, data: { description?: string; type?: string; probability?: string; impact?: string; mitigation?: string }) => {
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/risks/${riskId}`, data);
+    return response.data;
+  },
+
+  deleteRisk: async (accountId: string, riskId: number) => {
+    await api.delete(`/api/v1/kam-plan/${accountId}/risks/${riskId}`);
+  },
+
+  getCompetitors: async (accountId: string) => {
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/competitors`);
+    return response.data;
+  },
+
+  createCompetitor: async (accountId: string, data: { name: string; strengths?: string; weaknesses?: string; market_share?: number }) => {
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/competitors`, data);
+    return response.data;
+  },
+
+  updateCompetitor: async (accountId: string, competitorId: number, data: { name?: string; strengths?: string; weaknesses?: string; market_share?: number }) => {
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/competitors/${competitorId}`, data);
+    return response.data;
+  },
+
+  deleteCompetitor: async (accountId: string, competitorId: number) => {
+    await api.delete(`/api/v1/kam-plan/${accountId}/competitors/${competitorId}`);
+  },
+};
+
+export const valueMatrixAPI = {
+  getAttributes: async (accountId: string) => {
+    const response = await api.get(`/api/v1/value-matrix/${accountId}/attributes`);
+    return response.data;
+  },
+
+  getStakeholderAttributes: async (accountId: string, stakeholderId: number) => {
+    const response = await api.get(`/api/v1/value-matrix/${accountId}/stakeholders/${stakeholderId}/attributes`);
+    return response.data;
+  },
+
+  updateStakeholderAttribute: async (accountId: string, stakeholderId: number, attributeId: number, data: { importance: number; performance: number }) => {
+    const response = await api.put(`/api/v1/value-matrix/${accountId}/stakeholders/${stakeholderId}/attributes/${attributeId}`, data);
+    return response.data;
+  },
+
+  getZones: async () => {
+    const response = await api.get('/api/v1/value-matrix/zones');
     return response.data;
   },
 };

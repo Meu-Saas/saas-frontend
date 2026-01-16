@@ -19,7 +19,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -32,6 +31,16 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+import {
   Plus,
   Users,
   Layers,
@@ -42,46 +51,6 @@ import {
   Edit,
   Trash2,
 } from 'lucide-react';
-
-interface ConfigItem {
-  id: string;
-  name: string;
-  description?: string;
-  color?: string;
-  order_index?: number;
-  is_active: boolean;
-}
-
-const defaultPipelineStages: ConfigItem[] = [
-  { id: '1', name: 'Lead', color: '#6B7280', order_index: 1, is_active: true },
-  { id: '2', name: 'Qualificado', color: '#3B82F6', order_index: 2, is_active: true },
-  { id: '3', name: 'Proposta', color: '#EAB308', order_index: 3, is_active: true },
-  { id: '4', name: 'Negociacao', color: '#F97316', order_index: 4, is_active: true },
-  { id: '5', name: 'Ganho', color: '#22C55E', order_index: 5, is_active: true },
-  { id: '6', name: 'Perdido', color: '#EF4444', order_index: 6, is_active: true },
-];
-
-const defaultAccountCategories: ConfigItem[] = [
-  { id: '1', name: 'A', description: 'Contas de alta prioridade', is_active: true },
-  { id: '2', name: 'B', description: 'Contas de media prioridade', is_active: true },
-  { id: '3', name: 'C', description: 'Contas de baixa prioridade', is_active: true },
-  { id: '4', name: 'Estrategica', description: 'Contas estrategicas', is_active: true },
-];
-
-const defaultValueZones: ConfigItem[] = [
-  { id: '1', name: 'Imbativel', color: '#22C55E', description: 'Importancia >= 4 e Desempenho >= 4', is_active: true },
-  { id: '2', name: 'Competitivo', color: '#3B82F6', description: 'Importancia >= 3 e Desempenho >= 3', is_active: true },
-  { id: '3', name: 'Vulneravel', color: '#EF4444', description: 'Importancia >= 4 e Desempenho <= 2', is_active: true },
-  { id: '4', name: 'Irrelevante', color: '#6B7280', description: 'Importancia <= 2', is_active: true },
-];
-
-const defaultActivityTypes: ConfigItem[] = [
-  { id: '1', name: 'Ligacao', is_active: true },
-  { id: '2', name: 'Reuniao', is_active: true },
-  { id: '3', name: 'E-mail', is_active: true },
-  { id: '4', name: 'Tarefa', is_active: true },
-  { id: '5', name: 'Visita', is_active: true },
-];
 
 export const Admin: React.FC = () => {
   const { section } = useParams();
@@ -135,32 +104,15 @@ export const Admin: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="pipeline" className="mt-6">
-          <ConfigSection
-            title="Etapas do Pipeline"
-            description="Configure as etapas do funil de vendas"
-            items={defaultPipelineStages}
-            showColor
-            showOrder
-          />
+          <PipelineSection />
         </TabsContent>
 
         <TabsContent value="categories" className="mt-6">
-          <ConfigSection
-            title="Categorias de Conta"
-            description="Configure as categorias para classificacao de contas (A/B/C, Estrategica, etc.)"
-            items={defaultAccountCategories}
-            showDescription
-          />
+          <CategoriesSection />
         </TabsContent>
 
         <TabsContent value="value-zones" className="mt-6">
-          <ConfigSection
-            title="Zonas de Valor"
-            description="Configure os tipos de zona de valor (Imbativel, Vulneravel, etc.) com suas regras de calculo"
-            items={defaultValueZones}
-            showColor
-            showDescription
-          />
+          <ValueZonesSection />
         </TabsContent>
 
         <TabsContent value="prioritization" className="mt-6">
@@ -168,11 +120,7 @@ export const Admin: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="activity-types" className="mt-6">
-          <ConfigSection
-            title="Tipos de Atividade"
-            description="Configure os tipos de atividade disponiveis no sistema"
-            items={defaultActivityTypes}
-          />
+          <ActivityTypesSection />
         </TabsContent>
       </Tabs>
     </div>
@@ -189,26 +137,24 @@ interface User {
 
 const UsersSection: React.FC = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    password: '',
-    role: 'kam',
-  });
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [formData, setFormData] = useState({ full_name: '', email: '', password: '', role: 'kam' });
+  const [editFormData, setEditFormData] = useState({ full_name: '', role: '', is_active: true });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  useEffect(() => { loadUsers(); }, []);
 
   const loadUsers = async () => {
     try {
       const data = await adminAPI.getUsers();
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading users:', error);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -216,15 +162,9 @@ const UsersSection: React.FC = () => {
 
   const handleCreateUser = async () => {
     if (!formData.full_name || !formData.email || !formData.password) return;
-    
     setSaving(true);
     try {
-      await adminAPI.createUser({
-        full_name: formData.full_name,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role,
-      });
+      await adminAPI.createUser(formData);
       setIsDialogOpen(false);
       setFormData({ full_name: '', email: '', password: '', role: 'kam' });
       loadUsers();
@@ -235,341 +175,78 @@ const UsersSection: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return <div className="text-center py-8">Carregando...</div>;
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Usuarios</CardTitle>
-          <CardDescription>Gerencie os usuarios do sistema</CardDescription>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Usuario
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Novo Usuario</DialogTitle>
-              <DialogDescription>Adicione um novo usuario ao sistema</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nome *</Label>
-                <Input 
-                  id="name" 
-                  placeholder="Nome completo" 
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">E-mail *</Label>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="email@empresa.com" 
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password">Senha *</Label>
-                <Input 
-                  id="password" 
-                  type="password" 
-                  placeholder="Senha" 
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="role">Perfil</Label>
-                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o perfil" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="kam">KAM</SelectItem>
-                    <SelectItem value="gestor">Gestor</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCreateUser} disabled={saving || !formData.full_name || !formData.email || !formData.password}>
-                {saving ? 'Salvando...' : 'Salvar'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>E-mail</TableHead>
-              <TableHead>Perfil</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Acoes</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.full_name}</TableCell>
-                <TableCell>{user.email}</TableCell>
-                <TableCell>
-                  <Badge variant="outline">{user.role}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge className={user.is_active ? 'bg-green-500' : 'bg-gray-500'}>
-                    {user.is_active ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="icon">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-};
-
-interface ConfigSectionProps {
-  title: string;
-  description: string;
-  items: ConfigItem[];
-  showColor?: boolean;
-  showDescription?: boolean;
-  showOrder?: boolean;
-}
-
-const ConfigSection: React.FC<ConfigSectionProps> = ({
-  title,
-  description,
-  items,
-  showColor = false,
-  showDescription = false,
-  showOrder = false,
-}) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Novo Item</DialogTitle>
-              <DialogDescription>Adicione um novo item a configuracao</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input id="name" placeholder="Nome do item" />
-              </div>
-              {showDescription && (
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Descricao</Label>
-                  <Input id="description" placeholder="Descricao do item" />
-                </div>
-              )}
-              {showColor && (
-                <div className="grid gap-2">
-                  <Label htmlFor="color">Cor</Label>
-                  <Input id="color" type="color" />
-                </div>
-              )}
-              {showOrder && (
-                <div className="grid gap-2">
-                  <Label htmlFor="order">Ordem</Label>
-                  <Input id="order" type="number" placeholder="1" />
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={() => setIsDialogOpen(false)}>Salvar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {showOrder && <TableHead className="w-16">Ordem</TableHead>}
-              {showColor && <TableHead className="w-16">Cor</TableHead>}
-              <TableHead>Nome</TableHead>
-              {showDescription && <TableHead>Descricao</TableHead>}
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Acoes</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {items.map((item) => (
-              <TableRow key={item.id}>
-                {showOrder && <TableCell>{item.order_index}</TableCell>}
-                {showColor && (
-                  <TableCell>
-                    <div
-                      className="w-6 h-6 rounded-full"
-                      style={{ backgroundColor: item.color }}
-                    />
-                  </TableCell>
-                )}
-                <TableCell className="font-medium">{item.name}</TableCell>
-                {showDescription && (
-                  <TableCell className="text-muted-foreground">
-                    {item.description || '-'}
-                  </TableCell>
-                )}
-                <TableCell>
-                  <Badge className={item.is_active ? 'bg-green-500' : 'bg-gray-500'}>
-                    {item.is_active ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Button variant="ghost" size="icon">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-};
-
-const PrioritizationSection: React.FC = () => {
-  const criteria = [
-    { id: '1', name: 'Potencial de Receita', weight: 25, is_active: true },
-    { id: '2', name: 'Alinhamento Estrategico', weight: 20, is_active: true },
-    { id: '3', name: 'Complexidade de Relacionamento', weight: 15, is_active: true },
-    { id: '4', name: 'Engajamento Atual', weight: 15, is_active: true },
-    { id: '5', name: 'Oportunidade de Expansao', weight: 15, is_active: true },
-    { id: '6', name: 'Patrocinio Executivo', weight: 10, is_active: true },
-  ];
-
-  const thresholds = {
-    a_min: 80,
-    b_min: 50,
-    c_min: 0,
+  const handleEditClick = (user: User) => {
+    setSelectedUser(user);
+    setEditFormData({ full_name: user.full_name, role: user.role, is_active: user.is_active });
+    setIsEditDialogOpen(true);
   };
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+    setSaving(true);
+    try {
+      await adminAPI.updateUser(selectedUser.id, editFormData);
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+      loadUsers();
+    } catch (error) {
+      console.error('Error updating user:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    try {
+      await adminAPI.deleteUser(selectedUser.id);
+      setIsDeleteDialogOpen(false);
+      setSelectedUser(null);
+      loadUsers();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Carregando...</div>;
 
   return (
-    <div className="space-y-6">
+    <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Criterios de Priorizacao</CardTitle>
-            <CardDescription>
-              Configure os criterios e pesos para a Matriz de Priorizacao
-            </CardDescription>
+            <CardTitle>Usuarios</CardTitle>
+            <CardDescription>Gerencie os usuarios do sistema</CardDescription>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Criterio
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Novo Criterio</DialogTitle>
-                <DialogDescription>
-                  Adicione um novo criterio de priorizacao
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="name">Nome</Label>
-                  <Input id="name" placeholder="Nome do criterio" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="weight">Peso (%)</Label>
-                  <Input id="weight" type="number" placeholder="10" />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={() => setIsDialogOpen(false)}>Salvar</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setIsDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo Usuario</Button>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Criterio</TableHead>
-                <TableHead>Peso (%)</TableHead>
+                <TableHead>Nome</TableHead>
+                <TableHead>E-mail</TableHead>
+                <TableHead>Perfil</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Acoes</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {criteria.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell>{item.weight}%</TableCell>
-                  <TableCell>
-                    <Badge className={item.is_active ? 'bg-green-500' : 'bg-gray-500'}>
-                      {item.is_active ? 'Ativo' : 'Inativo'}
-                    </Badge>
-                  </TableCell>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.full_name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell><Badge variant="outline">{user.role}</Badge></TableCell>
+                  <TableCell><Badge className={user.is_active ? 'bg-green-500' : 'bg-gray-500'}>{user.is_active ? 'Ativo' : 'Inativo'}</Badge></TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(user)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -579,38 +256,1009 @@ const PrioritizationSection: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Faixas de Classificacao ABC</CardTitle>
-          <CardDescription>
-            Configure as faixas de score para classificacao automatica
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Categoria A (minimo)</Label>
-              <Input type="number" value={thresholds.a_min} />
-              <p className="text-xs text-muted-foreground">Score {'>='} {thresholds.a_min}</p>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Usuario</DialogTitle>
+            <DialogDescription>Adicione um novo usuario ao sistema</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Nome *</Label>
+              <Input placeholder="Nome completo" value={formData.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} />
             </div>
-            <div className="space-y-2">
-              <Label>Categoria B (minimo)</Label>
-              <Input type="number" value={thresholds.b_min} />
-              <p className="text-xs text-muted-foreground">
-                Score {'>='} {thresholds.b_min} e {'<'} {thresholds.a_min}
-              </p>
+            <div className="grid gap-2">
+              <Label>E-mail *</Label>
+              <Input type="email" placeholder="email@empresa.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
             </div>
-            <div className="space-y-2">
-              <Label>Categoria C</Label>
-              <Input type="number" value={thresholds.c_min} disabled />
-              <p className="text-xs text-muted-foreground">Score &lt; {thresholds.b_min}</p>
+            <div className="grid gap-2">
+              <Label>Senha *</Label>
+              <Input type="password" placeholder="Senha" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Perfil</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <SelectTrigger><SelectValue placeholder="Selecione o perfil" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="kam">KAM</SelectItem>
+                  <SelectItem value="gestor">Gestor</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div className="mt-4">
-            <Button>Salvar Configuracoes</Button>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateUser} disabled={saving || !formData.full_name || !formData.email || !formData.password}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Usuario</DialogTitle>
+            <DialogDescription>Atualize as informacoes do usuario</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Nome</Label>
+              <Input value={editFormData.full_name} onChange={(e) => setEditFormData({ ...editFormData, full_name: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Perfil</Label>
+              <Select value={editFormData.role} onValueChange={(value) => setEditFormData({ ...editFormData, role: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="kam">KAM</SelectItem>
+                  <SelectItem value="gestor">Gestor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <Select value={editFormData.is_active ? 'active' : 'inactive'} onValueChange={(value) => setEditFormData({ ...editFormData, is_active: value === 'active' })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Ativo</SelectItem>
+                  <SelectItem value="inactive">Inativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdateUser} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir o usuario {selectedUser?.full_name}?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
+
+interface PipelineStage {
+  id: number;
+  name: string;
+  color?: string;
+  probability?: number;
+  sort_order?: number;
+  is_active: boolean;
+}
+
+const PipelineSection: React.FC = () => {
+  const [stages, setStages] = useState<PipelineStage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<PipelineStage | null>(null);
+  const [formData, setFormData] = useState({ name: '', color: '#6B7280', probability: 0, sort_order: 1 });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    try {
+      const data = await adminAPI.getPipelineStages();
+      setStages(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading pipeline stages:', error);
+      setStages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!formData.name) return;
+    setSaving(true);
+    try {
+      await adminAPI.createPipelineStage(formData);
+      setIsDialogOpen(false);
+      setFormData({ name: '', color: '#6B7280', probability: 0, sort_order: 1 });
+      loadData();
+    } catch (error) {
+      console.error('Error creating pipeline stage:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditClick = (item: PipelineStage) => {
+    setSelectedItem(item);
+    setFormData({ name: item.name, color: item.color || '#6B7280', probability: item.probability || 0, sort_order: item.sort_order || 1 });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedItem) return;
+    setSaving(true);
+    try {
+      await adminAPI.updatePipelineStage(selectedItem.id, formData);
+      setIsEditDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error updating pipeline stage:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (item: PipelineStage) => {
+    setSelectedItem(item);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedItem) return;
+    try {
+      await adminAPI.deletePipelineStage(selectedItem.id);
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting pipeline stage:', error);
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Carregando...</div>;
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Etapas do Pipeline</CardTitle>
+            <CardDescription>Configure as etapas do funil de vendas</CardDescription>
+          </div>
+          <Button onClick={() => setIsDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo</Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Ordem</TableHead>
+                <TableHead className="w-16">Cor</TableHead>
+                <TableHead>Nome</TableHead>
+                <TableHead>Probabilidade</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {stages.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell>{item.sort_order}</TableCell>
+                  <TableCell><div className="w-6 h-6 rounded-full" style={{ backgroundColor: item.color || '#6B7280' }} /></TableCell>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell>{item.probability || 0}%</TableCell>
+                  <TableCell><Badge className={item.is_active ? 'bg-green-500' : 'bg-gray-500'}>{item.is_active ? 'Ativo' : 'Inativo'}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Etapa</DialogTitle>
+            <DialogDescription>Adicione uma nova etapa ao pipeline</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Cor</Label><Input type="color" value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Probabilidade (%)</Label><Input type="number" value={formData.probability} onChange={(e) => setFormData({ ...formData, probability: Number(e.target.value) })} /></div>
+            <div className="grid gap-2"><Label>Ordem</Label><Input type="number" value={formData.sort_order} onChange={(e) => setFormData({ ...formData, sort_order: Number(e.target.value) })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving || !formData.name}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Etapa</DialogTitle>
+            <DialogDescription>Atualize as informacoes da etapa</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Cor</Label><Input type="color" value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Probabilidade (%)</Label><Input type="number" value={formData.probability} onChange={(e) => setFormData({ ...formData, probability: Number(e.target.value) })} /></div>
+            <div className="grid gap-2"><Label>Ordem</Label><Input type="number" value={formData.sort_order} onChange={(e) => setFormData({ ...formData, sort_order: Number(e.target.value) })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdate} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir a etapa {selectedItem?.name}?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
+
+interface AccountCategory {
+  id: number;
+  name: string;
+  description?: string;
+  color?: string;
+  is_active: boolean;
+}
+
+const CategoriesSection: React.FC = () => {
+  const [categories, setCategories] = useState<AccountCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<AccountCategory | null>(null);
+  const [formData, setFormData] = useState({ name: '', description: '', color: '#6B7280' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    try {
+      const data = await adminAPI.getAccountCategories();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!formData.name) return;
+    setSaving(true);
+    try {
+      await adminAPI.createAccountCategory(formData);
+      setIsDialogOpen(false);
+      setFormData({ name: '', description: '', color: '#6B7280' });
+      loadData();
+    } catch (error) {
+      console.error('Error creating category:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditClick = (item: AccountCategory) => {
+    setSelectedItem(item);
+    setFormData({ name: item.name, description: item.description || '', color: item.color || '#6B7280' });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedItem) return;
+    setSaving(true);
+    try {
+      await adminAPI.updateAccountCategory(selectedItem.id, formData);
+      setIsEditDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error updating category:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (item: AccountCategory) => {
+    setSelectedItem(item);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedItem) return;
+    try {
+      await adminAPI.deleteAccountCategory(selectedItem.id);
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting category:', error);
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Carregando...</div>;
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Categorias de Conta</CardTitle>
+            <CardDescription>Configure as categorias para classificacao de contas</CardDescription>
+          </div>
+          <Button onClick={() => setIsDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo</Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Descricao</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {categories.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{item.description || '-'}</TableCell>
+                  <TableCell><Badge className={item.is_active ? 'bg-green-500' : 'bg-gray-500'}>{item.is_active ? 'Ativo' : 'Inativo'}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Categoria</DialogTitle>
+            <DialogDescription>Adicione uma nova categoria de conta</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Descricao</Label><Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving || !formData.name}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Categoria</DialogTitle>
+            <DialogDescription>Atualize as informacoes da categoria</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Descricao</Label><Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdate} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir a categoria {selectedItem?.name}?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
+
+interface ValueZone {
+  id: number;
+  name: string;
+  description?: string;
+  color?: string;
+  is_active: boolean;
+}
+
+const ValueZonesSection: React.FC = () => {
+  const [zones, setZones] = useState<ValueZone[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ValueZone | null>(null);
+  const [formData, setFormData] = useState({ name: '', description: '', color: '#6B7280' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    try {
+      const data = await adminAPI.getValueZones();
+      setZones(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading value zones:', error);
+      setZones([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!formData.name) return;
+    setSaving(true);
+    try {
+      await adminAPI.createValueZone(formData);
+      setIsDialogOpen(false);
+      setFormData({ name: '', description: '', color: '#6B7280' });
+      loadData();
+    } catch (error) {
+      console.error('Error creating value zone:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditClick = (item: ValueZone) => {
+    setSelectedItem(item);
+    setFormData({ name: item.name, description: item.description || '', color: item.color || '#6B7280' });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedItem) return;
+    setSaving(true);
+    try {
+      await adminAPI.updateValueZone(selectedItem.id, formData);
+      setIsEditDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error updating value zone:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (item: ValueZone) => {
+    setSelectedItem(item);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedItem) return;
+    try {
+      await adminAPI.deleteValueZone(selectedItem.id);
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting value zone:', error);
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Carregando...</div>;
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Zonas de Valor</CardTitle>
+            <CardDescription>Configure os tipos de zona de valor</CardDescription>
+          </div>
+          <Button onClick={() => setIsDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo</Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Cor</TableHead>
+                <TableHead>Nome</TableHead>
+                <TableHead>Descricao</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {zones.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell><div className="w-6 h-6 rounded-full" style={{ backgroundColor: item.color || '#6B7280' }} /></TableCell>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{item.description || '-'}</TableCell>
+                  <TableCell><Badge className={item.is_active ? 'bg-green-500' : 'bg-gray-500'}>{item.is_active ? 'Ativo' : 'Inativo'}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Zona de Valor</DialogTitle>
+            <DialogDescription>Adicione uma nova zona de valor</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Descricao</Label><Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Cor</Label><Input type="color" value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving || !formData.name}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Zona de Valor</DialogTitle>
+            <DialogDescription>Atualize as informacoes da zona de valor</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Descricao</Label><Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Cor</Label><Input type="color" value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdate} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir a zona de valor {selectedItem?.name}?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
+
+interface ActivityType {
+  id: number;
+  name: string;
+  description?: string;
+  color?: string;
+  is_active: boolean;
+}
+
+const ActivityTypesSection: React.FC = () => {
+  const [types, setTypes] = useState<ActivityType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ActivityType | null>(null);
+  const [formData, setFormData] = useState({ name: '', description: '', color: '#6B7280' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    try {
+      const data = await adminAPI.getActivityTypes();
+      setTypes(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading activity types:', error);
+      setTypes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!formData.name) return;
+    setSaving(true);
+    try {
+      await adminAPI.createActivityType(formData);
+      setIsDialogOpen(false);
+      setFormData({ name: '', description: '', color: '#6B7280' });
+      loadData();
+    } catch (error) {
+      console.error('Error creating activity type:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditClick = (item: ActivityType) => {
+    setSelectedItem(item);
+    setFormData({ name: item.name, description: item.description || '', color: item.color || '#6B7280' });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedItem) return;
+    setSaving(true);
+    try {
+      await adminAPI.updateActivityType(selectedItem.id, formData);
+      setIsEditDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error updating activity type:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (item: ActivityType) => {
+    setSelectedItem(item);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedItem) return;
+    try {
+      await adminAPI.deleteActivityType(selectedItem.id);
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting activity type:', error);
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Carregando...</div>;
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Tipos de Atividade</CardTitle>
+            <CardDescription>Configure os tipos de atividade disponiveis</CardDescription>
+          </div>
+          <Button onClick={() => setIsDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo</Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-16">Cor</TableHead>
+                <TableHead>Nome</TableHead>
+                <TableHead>Descricao</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {types.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell><div className="w-6 h-6 rounded-full" style={{ backgroundColor: item.color || '#6B7280' }} /></TableCell>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{item.description || '-'}</TableCell>
+                  <TableCell><Badge className={item.is_active ? 'bg-green-500' : 'bg-gray-500'}>{item.is_active ? 'Ativo' : 'Inativo'}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Tipo de Atividade</DialogTitle>
+            <DialogDescription>Adicione um novo tipo de atividade</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Descricao</Label><Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Cor</Label><Input type="color" value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving || !formData.name}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Tipo de Atividade</DialogTitle>
+            <DialogDescription>Atualize as informacoes do tipo de atividade</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Descricao</Label><Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Cor</Label><Input type="color" value={formData.color} onChange={(e) => setFormData({ ...formData, color: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdate} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir o tipo de atividade {selectedItem?.name}?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
+
+interface PrioritizationCriteria {
+  id: number;
+  name: string;
+  description?: string;
+  weight?: number;
+  threshold_a?: number;
+  threshold_b?: number;
+  is_active: boolean;
+}
+
+const PrioritizationSection: React.FC = () => {
+  const [criteria, setCriteria] = useState<PrioritizationCriteria[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<PrioritizationCriteria | null>(null);
+  const [formData, setFormData] = useState({ name: '', description: '', weight: 1, threshold_a: 80, threshold_b: 50 });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { loadData(); }, []);
+
+  const loadData = async () => {
+    try {
+      const data = await adminAPI.getPrioritizationCriteria();
+      setCriteria(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error loading prioritization criteria:', error);
+      setCriteria([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!formData.name) return;
+    setSaving(true);
+    try {
+      await adminAPI.createPrioritizationCriteria(formData);
+      setIsDialogOpen(false);
+      setFormData({ name: '', description: '', weight: 1, threshold_a: 80, threshold_b: 50 });
+      loadData();
+    } catch (error) {
+      console.error('Error creating prioritization criteria:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditClick = (item: PrioritizationCriteria) => {
+    setSelectedItem(item);
+    setFormData({ name: item.name, description: item.description || '', weight: item.weight || 1, threshold_a: item.threshold_a || 80, threshold_b: item.threshold_b || 50 });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedItem) return;
+    setSaving(true);
+    try {
+      await adminAPI.updatePrioritizationCriteria(selectedItem.id, formData);
+      setIsEditDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error updating prioritization criteria:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (item: PrioritizationCriteria) => {
+    setSelectedItem(item);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedItem) return;
+    try {
+      await adminAPI.deletePrioritizationCriteria(selectedItem.id);
+      setIsDeleteDialogOpen(false);
+      setSelectedItem(null);
+      loadData();
+    } catch (error) {
+      console.error('Error deleting prioritization criteria:', error);
+    }
+  };
+
+  if (loading) return <div className="text-center py-8">Carregando...</div>;
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Criterios de Priorizacao</CardTitle>
+            <CardDescription>Configure os criterios para priorizacao de contas (ABC)</CardDescription>
+          </div>
+          <Button onClick={() => setIsDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />Novo Criterio</Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nome</TableHead>
+                <TableHead>Descricao</TableHead>
+                <TableHead>Peso</TableHead>
+                <TableHead>Limite A</TableHead>
+                <TableHead>Limite B</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Acoes</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {criteria.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium">{item.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{item.description || '-'}</TableCell>
+                  <TableCell>{item.weight || 1}</TableCell>
+                  <TableCell>{item.threshold_a || 80}%</TableCell>
+                  <TableCell>{item.threshold_b || 50}%</TableCell>
+                  <TableCell><Badge className={item.is_active ? 'bg-green-500' : 'bg-gray-500'}>{item.is_active ? 'Ativo' : 'Inativo'}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(item)}><Edit className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(item)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Criterio de Priorizacao</DialogTitle>
+            <DialogDescription>Adicione um novo criterio para priorizacao ABC</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome *</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Descricao</Label><Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Peso</Label><Input type="number" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })} /></div>
+            <div className="grid gap-2"><Label>Limite A (%)</Label><Input type="number" value={formData.threshold_a} onChange={(e) => setFormData({ ...formData, threshold_a: Number(e.target.value) })} /></div>
+            <div className="grid gap-2"><Label>Limite B (%)</Label><Input type="number" value={formData.threshold_b} onChange={(e) => setFormData({ ...formData, threshold_b: Number(e.target.value) })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={saving || !formData.name}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Criterio de Priorizacao</DialogTitle>
+            <DialogDescription>Atualize as informacoes do criterio</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2"><Label>Nome</Label><Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Descricao</Label><Input value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
+            <div className="grid gap-2"><Label>Peso</Label><Input type="number" value={formData.weight} onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })} /></div>
+            <div className="grid gap-2"><Label>Limite A (%)</Label><Input type="number" value={formData.threshold_a} onChange={(e) => setFormData({ ...formData, threshold_a: Number(e.target.value) })} /></div>
+            <div className="grid gap-2"><Label>Limite B (%)</Label><Input type="number" value={formData.threshold_b} onChange={(e) => setFormData({ ...formData, threshold_b: Number(e.target.value) })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdate} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusao</AlertDialogTitle>
+            <AlertDialogDescription>Tem certeza que deseja excluir o criterio {selectedItem?.name}?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};
+
+export default Admin;

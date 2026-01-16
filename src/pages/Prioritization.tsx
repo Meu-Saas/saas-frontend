@@ -36,6 +36,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { accountsAPI, adminAPI } from '../services/api';
 
 interface PrioritizationCriteria {
   id: number;
@@ -105,73 +106,60 @@ export const Prioritization: React.FC = () => {
   }, []);
 
   const loadAccounts = async () => {
-    const mockAccounts: AccountWithPrioritization[] = [
-      {
-        id: 1,
-        name: 'Empresa ABC Ltda',
-        segment: 'Tecnologia',
-        category_name: 'Estrategica',
-        category_color: '#8B5CF6',
-        kam_name: 'Joao Silva',
-        total_score: 78,
-        abc_category: 'A',
-        scores: defaultCriteria.map(c => ({
-          criteria_id: c.id,
-          criteria_name: c.name,
-          score: Math.floor(Math.random() * 5) + 1,
-          weighted_score: 0,
-        })),
-      },
-      {
-        id: 2,
-        name: 'Tech Solutions SA',
-        segment: 'Servicos',
-        category_name: 'A',
-        category_color: '#22C55E',
-        kam_name: 'Maria Santos',
-        total_score: 65,
-        abc_category: 'B',
-        scores: defaultCriteria.map(c => ({
-          criteria_id: c.id,
-          criteria_name: c.name,
-          score: Math.floor(Math.random() * 5) + 1,
-          weighted_score: 0,
-        })),
-      },
-      {
-        id: 3,
-        name: 'Global Industries',
-        segment: 'Industria',
-        category_name: 'B',
-        category_color: '#EAB308',
-        kam_name: 'Pedro Costa',
-        total_score: 45,
-        abc_category: 'B',
-        scores: defaultCriteria.map(c => ({
-          criteria_id: c.id,
-          criteria_name: c.name,
-          score: Math.floor(Math.random() * 5) + 1,
-          weighted_score: 0,
-        })),
-      },
-      {
-        id: 4,
-        name: 'Startup Inovadora',
-        segment: 'Tecnologia',
-        category_name: 'C',
-        category_color: '#EF4444',
-        kam_name: 'Ana Oliveira',
-        total_score: 32,
-        abc_category: 'C',
-        scores: defaultCriteria.map(c => ({
-          criteria_id: c.id,
-          criteria_name: c.name,
-          score: Math.floor(Math.random() * 5) + 1,
-          weighted_score: 0,
-        })),
-      },
-    ];
-    setAccounts(mockAccounts);
+    try {
+      const [accountsData, criteriaData] = await Promise.all([
+        accountsAPI.getAll(),
+        adminAPI.getPrioritizationCriteria().catch(() => null),
+      ]);
+
+      const activeCriteria = criteriaData && Array.isArray(criteriaData) 
+        ? criteriaData.filter((c: { is_active?: boolean }) => c.is_active !== false)
+        : defaultCriteria;
+
+      if (accountsData && Array.isArray(accountsData)) {
+        const categoryColors: { [key: string]: string } = {
+          'A': '#22C55E',
+          'B': '#EAB308',
+          'C': '#EF4444',
+          'Estrategica': '#8B5CF6',
+        };
+
+        const mappedAccounts: AccountWithPrioritization[] = accountsData.map((account: {
+          id: number;
+          name: string;
+          segment?: string;
+          category_name?: string;
+          kam_user_name?: string;
+          prioritization_score?: number;
+          abc_category?: string;
+        }) => {
+          const totalScore = account.prioritization_score || Math.floor(Math.random() * 100);
+          const abcCategory = account.abc_category || getABCCategory(totalScore);
+          
+          return {
+            id: account.id,
+            name: account.name,
+            segment: account.segment || '-',
+            category_name: account.category_name || '-',
+            category_color: categoryColors[account.category_name || ''] || '#6B7280',
+            kam_name: account.kam_user_name || '-',
+            total_score: totalScore,
+            abc_category: abcCategory,
+            scores: activeCriteria.map((c: { id: number; name: string }) => ({
+              criteria_id: c.id,
+              criteria_name: c.name,
+              score: 3,
+              weighted_score: 0,
+            })),
+          };
+        });
+
+        setAccounts(mappedAccounts);
+      }
+    } catch (error) {
+      console.error('Error loading accounts for prioritization:', error);
+      setAccounts([]);
+    }
   };
 
   const handleAccountClick = (account: AccountWithPrioritization) => {

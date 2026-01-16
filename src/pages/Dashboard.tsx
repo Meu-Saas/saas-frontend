@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Building2, Calendar, TrendingUp, AlertCircle, Plus, Users } from 'lucide-react';
+import { dashboardAPI, activitiesAPI } from '../services/api';
 
 interface DashboardStats {
   totalAccounts: number;
@@ -57,23 +58,72 @@ export const Dashboard: React.FC = () => {
 
   const loadDashboardData = async () => {
     try {
-      setStats({
-        totalAccounts: 0,
-        strategicAccounts: 0,
-        totalOpportunities: 0,
-        pipelineValue: 0,
-        todayActivities: 0,
-        overdueActivities: 0,
-      });
-      setPipelineStages([
-        { name: 'Lead', count: 0, value: 0, color: 'bg-gray-500' },
-        { name: 'Qualificado', count: 0, value: 0, color: 'bg-blue-500' },
-        { name: 'Proposta', count: 0, value: 0, color: 'bg-yellow-500' },
-        { name: 'Negociacao', count: 0, value: 0, color: 'bg-orange-500' },
-        { name: 'Ganho', count: 0, value: 0, color: 'bg-green-500' },
+      const [statsData, pipelineData, topAccountsData, todayActivitiesData] = await Promise.all([
+        dashboardAPI.getStats().catch(() => null),
+        dashboardAPI.getPipeline().catch(() => null),
+        dashboardAPI.getTopAccounts().catch(() => null),
+        activitiesAPI.getToday().catch(() => []),
       ]);
-      setTopAccounts([]);
-      setTodayActivities([]);
+
+      if (statsData) {
+        setStats({
+          totalAccounts: statsData.total_accounts || 0,
+          strategicAccounts: statsData.strategic_accounts || 0,
+          totalOpportunities: statsData.total_opportunities || 0,
+          pipelineValue: statsData.pipeline_value || 0,
+          todayActivities: statsData.today_activities || 0,
+          overdueActivities: statsData.overdue_activities || 0,
+        });
+      }
+
+      if (pipelineData && pipelineData.stages) {
+        const colorMap: { [key: string]: string } = {
+          'Lead': 'bg-gray-500',
+          'Qualificado': 'bg-blue-500',
+          'Proposta': 'bg-yellow-500',
+          'Negociacao': 'bg-orange-500',
+          'Ganho': 'bg-green-500',
+          'Perdido': 'bg-red-500',
+        };
+        setPipelineStages(pipelineData.stages.map((stage: { name: string; count: number; value: number; color?: string }) => ({
+          name: stage.name,
+          count: stage.count,
+          value: stage.value,
+          color: colorMap[stage.name] || 'bg-gray-500',
+        })));
+      } else {
+        setPipelineStages([
+          { name: 'Lead', count: 0, value: 0, color: 'bg-gray-500' },
+          { name: 'Qualificado', count: 0, value: 0, color: 'bg-blue-500' },
+          { name: 'Proposta', count: 0, value: 0, color: 'bg-yellow-500' },
+          { name: 'Negociacao', count: 0, value: 0, color: 'bg-orange-500' },
+          { name: 'Ganho', count: 0, value: 0, color: 'bg-green-500' },
+        ]);
+      }
+
+      if (topAccountsData && Array.isArray(topAccountsData)) {
+        setTopAccounts(topAccountsData.map((account: { id: number; name: string; category_name?: string; opportunity_value?: number; last_activity_date?: string }) => ({
+          id: String(account.id),
+          name: account.name,
+          category: account.category_name || '-',
+          potential: account.opportunity_value || 0,
+          lastInteraction: account.last_activity_date 
+            ? new Date(account.last_activity_date).toLocaleDateString('pt-BR')
+            : 'Sem interacao',
+        })));
+      }
+
+      if (todayActivitiesData && Array.isArray(todayActivitiesData)) {
+        setTodayActivities(todayActivitiesData.map((activity: { id: number; title: string; type_name?: string; account_name?: string; scheduled_at?: string }) => ({
+          id: String(activity.id),
+          title: activity.title,
+          type: activity.type_name || 'Tarefa',
+          accountName: activity.account_name || '-',
+          time: activity.scheduled_at 
+            ? new Date(activity.scheduled_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : '-',
+        })));
+      }
     } catch (error) {
       console.error('Error loading dashboard:', error);
     } finally {

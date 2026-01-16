@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -84,10 +85,12 @@ interface KamPlanExecution {
 }
 
 export const Reports: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('pipeline');
   const [dateRange, setDateRange] = useState('month');
   const [selectedKam, setSelectedKam] = useState('all');
   const [selectedSegment, setSelectedSegment] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
   const [pipelineData, setPipelineData] = useState<PipelineStage[]>([]);
   const [forecastData, setForecastData] = useState<ForecastData[]>([]);
@@ -266,20 +269,54 @@ export const Reports: React.FC = () => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const getHealthColor = (status: string) => {
-    switch (status) {
-      case 'Saudavel':
-        return 'bg-green-100 text-green-800';
-      case 'Atencao':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Critico':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+    const getHealthColor = (status: string) => {
+      switch (status) {
+        case 'Saudavel':
+          return 'bg-green-100 text-green-800';
+        case 'Atencao':
+          return 'bg-yellow-100 text-yellow-800';
+        case 'Critico':
+          return 'bg-red-100 text-red-800';
+        default:
+          return 'bg-gray-100 text-gray-800';
+      }
+    };
 
-  const totalPipelineValue = pipelineData.reduce((sum, stage) => sum + stage.value, 0);
+    const handleExport = () => {
+      const data = {
+        pipeline: pipelineData,
+        forecast: forecastData,
+        activities: activityReports,
+        health: accountHealthData,
+        value: valueStakeholderData,
+        kamPlan: kamPlanData,
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio-kam-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+
+    const handleSaveView = () => {
+      const viewConfig = { dateRange, selectedKam, selectedSegment, selectedCategory, activeTab };
+      localStorage.setItem('kam-report-view', JSON.stringify(viewConfig));
+      alert('Visao salva com sucesso!');
+    };
+
+    const handleViewPlan = (accountName: string) => {
+      navigate(`/accounts?search=${encodeURIComponent(accountName)}`);
+    };
+
+    const handleViewOrganogram = (accountName: string) => {
+      navigate(`/accounts?search=${encodeURIComponent(accountName)}`);
+    };
+
+    const totalPipelineValue = pipelineData.reduce((sum, stage) => sum + stage.value, 0);
   const totalOpportunities = pipelineData.reduce((sum, stage) => sum + stage.count, 0);
 
   return (
@@ -292,14 +329,14 @@ export const Reports: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline">
-            <Star className="h-4 w-4 mr-2" />
-            Salvar Visao
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar
-          </Button>
+                    <Button variant="outline" onClick={handleSaveView}>
+                      <Star className="h-4 w-4 mr-2" />
+                      Salvar Visao
+                    </Button>
+                    <Button variant="outline" onClick={handleExport}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Exportar
+                    </Button>
         </div>
       </div>
 
@@ -705,9 +742,9 @@ export const Reports: React.FC = () => {
                         {data.vulneravel_count}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button variant="ghost" size="sm">
-                          Ver Organograma
-                        </Button>
+                                                <Button variant="ghost" size="sm" onClick={() => handleViewOrganogram(data.account_name)}>
+                                                  Ver Organograma
+                                                </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -762,9 +799,9 @@ export const Reports: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-center">{data.strategic_pillars}/6</TableCell>
                       <TableCell className="text-center">
-                        <Button variant="ghost" size="sm">
-                          Ver Plano
-                        </Button>
+                                                <Button variant="ghost" size="sm" onClick={() => handleViewPlan(data.account_name)}>
+                                                  Ver Plano
+                                                </Button>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -21,6 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import {
@@ -45,6 +53,7 @@ import {
   RiscosConcorrencia,
   MatrizValor,
 } from '../components/kam';
+import { accountsAPI, contactsAPI, opportunitiesAPI, activitiesAPI } from '../services/api';
 
 interface Account {
   id: string;
@@ -100,51 +109,146 @@ export const AccountDetail: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('resumo');
+    const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [activeTab, setActiveTab] = useState('resumo');
+    const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+    const [isOpportunityDialogOpen, setIsOpportunityDialogOpen] = useState(false);
+    const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
+    const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', role: '' });
+    const [opportunityForm, setOpportunityForm] = useState({ title: '', value: '', expected_close_date: '' });
+    const [activityForm, setActivityForm] = useState({ title: '', type: 'meeting', scheduled_at: '', description: '' });
+    const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadAccountData();
   }, [id]);
 
   const loadAccountData = async () => {
-    try {
-      setAccount({
-        id: id || '1',
-        name: 'Empresa Exemplo',
-        cnpj: '00.000.000/0001-00',
-        website: 'https://exemplo.com',
-        segment: 'Tecnologia',
-        region: 'Sudeste',
-        city: 'Sao Paulo',
-        state: 'SP',
-        estimated_revenue: 10000000,
-        employee_count: 500,
-        status: 'active',
-        category_id: '1',
-        category_name: 'A',
-        kam_user_id: '1',
-        kam_user_name: 'KAM Usuario',
-        is_strategic: true,
-        notes: 'Conta estrategica com alto potencial de crescimento.',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-      setContacts([]);
-      setOpportunities([]);
-      setActivities([]);
+    if (!id) {
       setLoading(false);
+      return;
+    }
+    try {
+      const [accountData, contactsData, opportunitiesData, activitiesData] = await Promise.all([
+        accountsAPI.getById(id),
+        contactsAPI.getByAccount(id).catch(() => []),
+        opportunitiesAPI.getByAccount(id).catch(() => []),
+        activitiesAPI.getAll().then(activities => 
+          activities.filter((a: { account_id?: number }) => a.account_id === Number(id))
+        ).catch(() => []),
+      ]);
+
+      if (accountData) {
+        setAccount({
+          id: String(accountData.id),
+          name: accountData.name,
+          cnpj: accountData.cnpj || null,
+          website: accountData.website || null,
+          segment: accountData.segment || null,
+          region: accountData.region || null,
+          city: accountData.city || null,
+          state: accountData.state || null,
+          estimated_revenue: accountData.estimated_revenue || null,
+          employee_count: accountData.employee_count || null,
+          status: accountData.status || 'active',
+          category_id: accountData.category_id ? String(accountData.category_id) : null,
+          category_name: accountData.category_name || undefined,
+          kam_user_id: accountData.kam_user_id ? String(accountData.kam_user_id) : null,
+          kam_user_name: accountData.kam_user_name || undefined,
+          is_strategic: accountData.is_strategic || false,
+          notes: accountData.notes || null,
+          created_at: accountData.created_at,
+          updated_at: accountData.updated_at,
+        });
+      }
+
+      if (contactsData && Array.isArray(contactsData)) {
+        setContacts(contactsData.map((c: { id: number; name: string; email?: string; phone?: string; role?: string; is_key_stakeholder?: boolean }) => ({
+          id: String(c.id),
+          name: c.name,
+          email: c.email || null,
+          phone: c.phone || null,
+          role: c.role || null,
+          is_key_stakeholder: c.is_key_stakeholder || false,
+        })));
+      }
+
+      if (opportunitiesData && Array.isArray(opportunitiesData)) {
+        setOpportunities(opportunitiesData.map((o: { id: number; title: string; value?: number; stage_name?: string; expected_close_date?: string }) => ({
+          id: String(o.id),
+          title: o.title,
+          value: o.value || null,
+          stage_name: o.stage_name || '-',
+          expected_close_date: o.expected_close_date || null,
+        })));
+      }
+
+      if (activitiesData && Array.isArray(activitiesData)) {
+        setActivities(activitiesData.map((a: { id: number; title: string; type_name?: string; scheduled_at?: string; status?: string }) => ({
+          id: String(a.id),
+          title: a.title,
+          type_name: a.type_name || 'Tarefa',
+          scheduled_date: a.scheduled_at || '',
+          status: a.status || 'pending',
+        })));
+      }
     } catch (error) {
       console.error('Error loading account:', error);
+    } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (value: number | null) => {
-    if (value === null) return '-';
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
+    const formatCurrency = (value: number | null) => {
+      if (value === null) return '-';
+      return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    };
+
+    const handleCreateContact = async () => {
+      if (!contactForm.name || !id) return;
+      setSaving(true);
+      try {
+        await contactsAPI.create({ account_id: Number(id), name: contactForm.name, email: contactForm.email || undefined, phone: contactForm.phone || undefined, role: contactForm.role || undefined });
+        setIsContactDialogOpen(false);
+        setContactForm({ name: '', email: '', phone: '', role: '' });
+        loadAccountData();
+      } catch (error) {
+        console.error('Error creating contact:', error);
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    const handleCreateOpportunity = async () => {
+      if (!opportunityForm.title || !id) return;
+      setSaving(true);
+      try {
+        await opportunitiesAPI.create({ account_id: Number(id), title: opportunityForm.title, value: opportunityForm.value ? Number(opportunityForm.value) : undefined, expected_close_date: opportunityForm.expected_close_date || undefined });
+        setIsOpportunityDialogOpen(false);
+        setOpportunityForm({ title: '', value: '', expected_close_date: '' });
+        loadAccountData();
+      } catch (error) {
+        console.error('Error creating opportunity:', error);
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    const handleCreateActivity = async () => {
+      if (!activityForm.title || !id) return;
+      setSaving(true);
+      try {
+        await activitiesAPI.create({ account_id: Number(id), title: activityForm.title, type: activityForm.type, scheduled_at: activityForm.scheduled_at || new Date().toISOString(), description: activityForm.description || undefined });
+        setIsActivityDialogOpen(false);
+        setActivityForm({ title: '', type: 'meeting', scheduled_at: '', description: '' });
+        loadAccountData();
+      } catch (error) {
+        console.error('Error creating activity:', error);
+      } finally {
+        setSaving(false);
+      }
+    };
 
   if (loading) {
     return (
@@ -401,13 +505,13 @@ export const AccountDetail: React.FC = () => {
                   {contacts.length} contatos vinculados a esta conta
                 </CardDescription>
               </div>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Novo Contato
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {contacts.length === 0 ? (
+                          <Button onClick={() => setIsContactDialogOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Novo Contato
+                          </Button>
+                        </CardHeader>
+                        <CardContent>
+                          {contacts.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>Nenhum contato cadastrado para esta conta</p>
                 </div>
@@ -455,13 +559,13 @@ export const AccountDetail: React.FC = () => {
                   {opportunities.length} oportunidades vinculadas a esta conta
                 </CardDescription>
               </div>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Oportunidade
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {opportunities.length === 0 ? (
+                          <Button onClick={() => setIsOpportunityDialogOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nova Oportunidade
+                          </Button>
+                        </CardHeader>
+                        <CardContent>
+                          {opportunities.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>Nenhuma oportunidade cadastrada para esta conta</p>
                 </div>
@@ -509,13 +613,13 @@ export const AccountDetail: React.FC = () => {
                   {activities.length} atividades vinculadas a esta conta
                 </CardDescription>
               </div>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Nova Atividade
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {activities.length === 0 ? (
+                          <Button onClick={() => setIsActivityDialogOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Nova Atividade
+                          </Button>
+                        </CardHeader>
+                        <CardContent>
+                          {activities.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>Nenhuma atividade cadastrada para esta conta</p>
                 </div>
@@ -553,6 +657,103 @@ export const AccountDetail: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={isContactDialogOpen} onOpenChange={setIsContactDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Contato</DialogTitle>
+            <DialogDescription>Adicione um novo contato a esta conta</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Nome *</Label>
+              <Input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Nome do contato" />
+            </div>
+            <div className="grid gap-2">
+              <Label>E-mail</Label>
+              <Input type="email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="email@empresa.com" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Telefone</Label>
+              <Input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="(11) 99999-9999" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Cargo</Label>
+              <Input value={contactForm.role} onChange={(e) => setContactForm({ ...contactForm, role: e.target.value })} placeholder="Diretor, Gerente, etc." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsContactDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateContact} disabled={saving || !contactForm.name}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isOpportunityDialogOpen} onOpenChange={setIsOpportunityDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Oportunidade</DialogTitle>
+            <DialogDescription>Adicione uma nova oportunidade a esta conta</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Titulo *</Label>
+              <Input value={opportunityForm.title} onChange={(e) => setOpportunityForm({ ...opportunityForm, title: e.target.value })} placeholder="Titulo da oportunidade" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Valor</Label>
+              <Input type="number" value={opportunityForm.value} onChange={(e) => setOpportunityForm({ ...opportunityForm, value: e.target.value })} placeholder="10000" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Data Prevista de Fechamento</Label>
+              <Input type="date" value={opportunityForm.expected_close_date} onChange={(e) => setOpportunityForm({ ...opportunityForm, expected_close_date: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsOpportunityDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateOpportunity} disabled={saving || !opportunityForm.title}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isActivityDialogOpen} onOpenChange={setIsActivityDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nova Atividade</DialogTitle>
+            <DialogDescription>Adicione uma nova atividade a esta conta</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Titulo *</Label>
+              <Input value={activityForm.title} onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })} placeholder="Titulo da atividade" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Tipo</Label>
+              <Select value={activityForm.type} onValueChange={(value) => setActivityForm({ ...activityForm, type: value })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="meeting">Reuniao</SelectItem>
+                  <SelectItem value="call">Ligacao</SelectItem>
+                  <SelectItem value="email">E-mail</SelectItem>
+                  <SelectItem value="task">Tarefa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label>Data Agendada</Label>
+              <Input type="datetime-local" value={activityForm.scheduled_at} onChange={(e) => setActivityForm({ ...activityForm, scheduled_at: e.target.value })} />
+            </div>
+            <div className="grid gap-2">
+              <Label>Descricao</Label>
+              <Textarea value={activityForm.description} onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })} placeholder="Descricao da atividade" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsActivityDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateActivity} disabled={saving || !activityForm.title}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
