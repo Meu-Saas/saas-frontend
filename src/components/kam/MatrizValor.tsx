@@ -41,7 +41,9 @@ import {
   ChevronRight,
   User,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
+import { valueMatrixAPI, contactsAPI } from '../../services/api';
 
 interface ValueAttribute {
   id: number;
@@ -87,7 +89,7 @@ const defaultZones: ValueZone[] = [
   { id: 4, name: 'Irrelevante', color: '#9CA3AF', min_importance: 1, min_performance: 1, max_performance: 5 },
 ];
 
-export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId: _accountId }) => {
+export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId }) => {
   const [attributes, setAttributes] = useState<ValueAttribute[]>([]);
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [zones] = useState<ValueZone[]>(defaultZones);
@@ -97,6 +99,8 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId: _accountId 
   const [isStakeholderPanelOpen, setIsStakeholderPanelOpen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [newAttribute, setNewAttribute] = useState({
     name: '',
@@ -107,140 +111,49 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId: _accountId 
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [accountId]);
 
-  const loadData = () => {
-    const mockAttributes: ValueAttribute[] = [
-      {
-        id: 1,
-        name: 'FinOps / Otimizacao de Custos',
-        importance: 5,
-        performance: 5,
-        gap: 0,
-        zone: 'Imbativel',
-        zone_color: '#22C55E',
-        recommended_action: 'Manter posicao e expandir para outras areas',
-      },
-      {
-        id: 2,
-        name: 'Seguranca e Compliance',
-        importance: 5,
-        performance: 4,
-        gap: 1,
-        zone: 'Imbativel',
-        zone_color: '#22C55E',
-        recommended_action: 'Fortalecer com certificacoes adicionais',
-      },
-      {
-        id: 3,
-        name: 'Performance e Escalabilidade',
-        importance: 4,
-        performance: 3,
-        gap: 1,
-        zone: 'Competitivo',
-        zone_color: '#3B82F6',
-        recommended_action: 'Investir em POC para demonstrar capacidade',
-      },
-      {
-        id: 4,
-        name: 'IA/ML e Analytics',
-        importance: 5,
-        performance: 2,
-        gap: 3,
-        zone: 'Vulneravel',
-        zone_color: '#EF4444',
-        recommended_action: 'Prioridade alta - desenvolver caso de uso',
-      },
-      {
-        id: 5,
-        name: 'Suporte Local',
-        importance: 2,
-        performance: 4,
-        gap: -2,
-        zone: 'Irrelevante',
-        zone_color: '#9CA3AF',
-        recommended_action: 'Manter nivel atual, nao investir mais',
-      },
-    ];
+  const loadData = async () => {
+    if (!accountId) return;
+    setLoading(true);
+    try {
+      // Load value attributes from API
+      const attributesData = await valueMatrixAPI.getAttributes(accountId);
+      if (Array.isArray(attributesData)) {
+        setAttributes(attributesData);
+      }
 
-    const mockStakeholders: Stakeholder[] = [
-      {
-        id: 1,
-        name: 'Carlos Silva',
-        role: 'CEO',
-        department: 'Diretoria',
-        power_level: 5,
-        support_level: 'Apoiador',
-        relationship_level: 'Patrocinador',
-        superior_id: null,
-        show_in_orgchart: true,
-        related_attributes: [1, 2],
-      },
-      {
-        id: 2,
-        name: 'Ana Santos',
-        role: 'CTO',
-        department: 'Tecnologia',
-        power_level: 5,
-        support_level: 'Apoiador',
-        relationship_level: 'Bom',
-        superior_id: 1,
-        show_in_orgchart: true,
-        related_attributes: [3, 4],
-      },
-      {
-        id: 3,
-        name: 'Roberto Lima',
-        role: 'CFO',
-        department: 'Financeiro',
-        power_level: 4,
-        support_level: 'Neutro',
-        relationship_level: 'Neutro',
-        superior_id: 1,
-        show_in_orgchart: true,
-        related_attributes: [1],
-      },
-      {
-        id: 4,
-        name: 'Maria Costa',
-        role: 'Head de Infraestrutura',
-        department: 'Tecnologia',
-        power_level: 3,
-        support_level: 'Apoiador',
-        relationship_level: 'Bom',
-        superior_id: 2,
-        show_in_orgchart: true,
-        related_attributes: [2, 3],
-      },
-      {
-        id: 5,
-        name: 'Pedro Oliveira',
-        role: 'Head de Dados',
-        department: 'Tecnologia',
-        power_level: 3,
-        support_level: 'Opositor',
-        relationship_level: 'Frio',
-        superior_id: 2,
-        show_in_orgchart: true,
-        related_attributes: [4],
-      },
-      {
-        id: 6,
-        name: 'Julia Ferreira',
-        role: 'Gerente de Projetos',
-        department: 'Tecnologia',
-        power_level: 2,
-        support_level: 'Apoiador',
-        relationship_level: 'Bom',
-        superior_id: 4,
-        show_in_orgchart: true,
-        related_attributes: [3],
-      },
-    ];
-
-    setAttributes(mockAttributes);
-    setStakeholders(mockStakeholders);
-    setExpandedNodes(new Set([1, 2]));
+      // Load contacts as stakeholders (contacts can be used as stakeholders)
+      try {
+        const contactsData = await contactsAPI.getByAccount(accountId);
+        if (Array.isArray(contactsData)) {
+          const stakeholdersList: Stakeholder[] = contactsData.map((contact) => ({
+            id: parseInt(String(contact.id), 10),
+            name: contact.name,
+            role: contact.role || 'Contato',
+            department: '',
+            power_level: 3,
+            support_level: 'Neutro',
+            relationship_level: 'Neutro',
+            superior_id: null,
+            show_in_orgchart: true,
+            related_attributes: [],
+          }));
+          setStakeholders(stakeholdersList);
+          // Expand first level nodes
+          const rootIds = stakeholdersList.filter(s => s.superior_id === null).map(s => s.id);
+          setExpandedNodes(new Set(rootIds));
+        }
+      } catch (contactError) {
+        console.error('Error loading contacts as stakeholders:', contactError);
+        setStakeholders([]);
+      }
+    } catch (error) {
+      console.error('Error loading value matrix data:', error);
+      setAttributes([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const calculateZone = (importance: number, performance: number): { zone: string; color: string } => {
@@ -255,28 +168,39 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId: _accountId 
     }
   };
 
-  const handleAddAttribute = () => {
-    const { zone, color } = calculateZone(newAttribute.importance, newAttribute.performance);
-    const gap = newAttribute.importance - newAttribute.performance;
-
-    const attribute: ValueAttribute = {
-      id: attributes.length + 1,
-      name: newAttribute.name,
-      importance: newAttribute.importance,
-      performance: newAttribute.performance,
-      gap,
-      zone,
-      zone_color: color,
-      recommended_action: newAttribute.recommended_action,
-    };
-
-    setAttributes([...attributes, attribute]);
-    setNewAttribute({ name: '', importance: 3, performance: 3, recommended_action: '' });
-    setIsAttributeDialogOpen(false);
+  const handleAddAttribute = async () => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      const newAttr = await valueMatrixAPI.createAttribute(accountId, {
+        name: newAttribute.name,
+        importance: newAttribute.importance,
+        performance: newAttribute.performance,
+        recommended_action: newAttribute.recommended_action || undefined,
+      });
+      setAttributes([...attributes, newAttr]);
+      setNewAttribute({ name: '', importance: 3, performance: 3, recommended_action: '' });
+      setIsAttributeDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating attribute:', error);
+      alert('Erro ao criar atributo. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteAttribute = (id: number) => {
-    setAttributes(attributes.filter(a => a.id !== id));
+  const handleDeleteAttribute = async (id: number) => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      await valueMatrixAPI.deleteAttribute(accountId, id);
+      setAttributes(attributes.filter(a => a.id !== id));
+    } catch (error) {
+      console.error('Error deleting attribute:', error);
+      alert('Erro ao excluir atributo. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleStakeholderClick = (stakeholder: Stakeholder) => {
@@ -424,8 +348,31 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId: _accountId 
 
   const rootStakeholders = stakeholders.filter(s => s.superior_id === null && s.show_in_orgchart);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {attributes.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Target className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum atributo de valor cadastrado</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Adicione atributos de valor para mapear a importancia e desempenho percebido pelo cliente.
+            </p>
+            <Button onClick={() => setIsAttributeDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar Primeiro Atributo
+            </Button>
+          </CardContent>
+        </Card>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -505,11 +452,11 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId: _accountId 
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAttributeDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => setIsAttributeDialogOpen(false)} disabled={saving}>
                     Cancelar
                   </Button>
-                  <Button onClick={handleAddAttribute} disabled={!newAttribute.name}>
-                    Adicionar
+                  <Button onClick={handleAddAttribute} disabled={!newAttribute.name || saving}>
+                    {saving ? 'Adicionando...' : 'Adicionar'}
                   </Button>
                 </DialogFooter>
               </DialogContent>

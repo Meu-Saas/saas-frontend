@@ -655,17 +655,34 @@ export const kamPlanAPI = {
 
 export const valueMatrixAPI = {
   getAttributes: async (accountId: string) => {
-    const response = await api.get(`/api/v1/value-matrix/${accountId}/attributes`);
+    const response = await api.get(`/api/v1/value-matrix/accounts/${accountId}/attributes`);
     return response.data;
+  },
+
+  createAttribute: async (accountId: string, data: { name: string; importance: number; performance: number; recommended_action?: string }) => {
+    const response = await api.post(`/api/v1/value-matrix/accounts/${accountId}/attributes`, data);
+    return response.data;
+  },
+
+  updateAttribute: async (accountId: string, attributeId: number, data: { name: string; importance: number; performance: number; recommended_action?: string }) => {
+    const response = await api.put(`/api/v1/value-matrix/accounts/${accountId}/attributes/${attributeId}`, data);
+    return response.data;
+  },
+
+  deleteAttribute: async (accountId: string, attributeId: number) => {
+    await api.delete(`/api/v1/value-matrix/accounts/${accountId}/attributes/${attributeId}`);
   },
 
   getStakeholderAttributes: async (accountId: string, stakeholderId: number) => {
-    const response = await api.get(`/api/v1/value-matrix/${accountId}/stakeholders/${stakeholderId}/attributes`);
+    const response = await api.get(`/api/v1/value-matrix/accounts/${accountId}/stakeholders/${stakeholderId}/attributes`);
     return response.data;
   },
 
-  updateStakeholderAttribute: async (accountId: string, stakeholderId: number, attributeId: number, data: { importance: number; performance: number }) => {
-    const response = await api.put(`/api/v1/value-matrix/${accountId}/stakeholders/${stakeholderId}/attributes/${attributeId}`, data);
+  linkStakeholderAttributes: async (accountId: string, stakeholderId: number, attributeIds: number[]) => {
+    const response = await api.put(`/api/v1/value-matrix/accounts/${accountId}/stakeholders/${stakeholderId}/attributes`, {
+      stakeholder_id: stakeholderId,
+      attribute_ids: attributeIds,
+    });
     return response.data;
   },
 

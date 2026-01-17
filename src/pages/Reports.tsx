@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -220,25 +221,93 @@ export const Reports: React.FC = () => {
       }
     };
 
-    const handleExport = () => {
-      const data = {
-        pipeline: pipelineData,
-        forecast: forecastData,
-        activities: activityReports,
-        health: accountHealthData,
-        value: valueStakeholderData,
-        kamPlan: kamPlanData,
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `relatorio-kam-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    };
+  const handleExport = () => {
+    const workbook = XLSX.utils.book_new();
+
+    // Pipeline sheet
+    const pipelineSheet = XLSX.utils.json_to_sheet(
+      pipelineData.map(item => ({
+        'Etapa': item.name,
+        'Quantidade': item.count,
+        'Valor (R$)': item.value,
+      }))
+    );
+    pipelineSheet['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(workbook, pipelineSheet, 'Pipeline');
+
+    // Forecast sheet
+    const forecastSheet = XLSX.utils.json_to_sheet(
+      forecastData.map(item => ({
+        'Mês': item.month,
+        'Projetado (R$)': item.projected,
+        'Realizado (R$)': item.actual,
+        'Confiança (%)': item.confidence,
+      }))
+    );
+    forecastSheet['!cols'] = [{ wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(workbook, forecastSheet, 'Forecast');
+
+    // Activities sheet
+    const activitiesSheet = XLSX.utils.json_to_sheet(
+      activityReports.map(item => ({
+        'KAM': item.kam_name,
+        'Total': item.total_activities,
+        'Concluídas': item.completed,
+        'Pendentes': item.pending,
+        'Atrasadas': item.overdue,
+        'Taxa Execução (%)': item.total_activities > 0 
+          ? Math.round((item.completed / item.total_activities) * 100) 
+          : 0,
+      }))
+    );
+    activitiesSheet['!cols'] = [{ wch: 25 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(workbook, activitiesSheet, 'Atividades');
+
+    // Health sheet
+    const healthSheet = XLSX.utils.json_to_sheet(
+      accountHealthData.map(item => ({
+        'Conta': item.account_name,
+        'Score Priorização': item.prioritization_score,
+        'Categoria ABC': item.abc_category,
+        'Gap de Valor (R$)': item.value_gap,
+        'Riscos': item.risk_count,
+        'Engajamento': item.engagement_score,
+        'Status': item.health_status,
+      }))
+    );
+    healthSheet['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 18 }, { wch: 10 }, { wch: 15 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(workbook, healthSheet, 'Saúde');
+
+    // Value sheet
+    const valueSheet = XLSX.utils.json_to_sheet(
+      valueStakeholderData.map(item => ({
+        'Conta': item.account_name,
+        'Stakeholders': item.stakeholder_count,
+        'Apoiadores (%)': item.supporter_percentage,
+        'Imbatíveis': item.imbativel_count,
+        'Vulneráveis': item.vulneravel_count,
+      }))
+    );
+    valueSheet['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(workbook, valueSheet, 'Valor');
+
+    // KAM Plan sheet
+    const kamPlanSheet = XLSX.utils.json_to_sheet(
+      kamPlanData.map(item => ({
+        'Conta': item.account_name,
+        'Total Ações': item.total_actions,
+        'Ações Concluídas': item.completed_actions,
+        'Taxa Conclusão (%)': item.completion_rate,
+        'Pilares Estratégicos': item.strategic_pillars,
+      }))
+    );
+    kamPlanSheet['!cols'] = [{ wch: 25 }, { wch: 12 }, { wch: 18 }, { wch: 18 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(workbook, kamPlanSheet, 'Plano KAM');
+
+    // Generate and download file
+    const fileName = `relatorio-kam-${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
 
     const handleSaveView = () => {
       const viewConfig = { dateRange, selectedKam, selectedSegment, selectedCategory, activeTab };
