@@ -117,6 +117,11 @@ export const contactsAPI = {
     return response.data;
   },
 
+  getByAccount: async (accountId: string): Promise<Contact[]> => {
+    const response = await api.get<Contact[]>(`/api/v1/accounts/${accountId}/contacts`);
+    return response.data;
+  },
+
   create: async (data: CreateContactRequest): Promise<Contact> => {
     const response = await api.post<Contact>('/api/v1/contacts', data);
     return response.data;
@@ -172,6 +177,11 @@ export const opportunitiesAPI = {
 
   getById: async (id: string): Promise<Opportunity> => {
     const response = await api.get<Opportunity>(`/api/v1/opportunities/${id}`);
+    return response.data;
+  },
+
+  getByAccount: async (accountId: string): Promise<Opportunity[]> => {
+    const response = await api.get<Opportunity[]>(`/api/v1/accounts/${accountId}/opportunities`);
     return response.data;
   },
 
@@ -420,8 +430,12 @@ export const dashboardAPI = {
 };
 
 export const prioritizationAPI = {
-  getAccounts: async () => {
-    const response = await api.get('/api/v1/prioritization/accounts');
+  getAccounts: async (filters?: { segment?: string; abc_category?: string; min_score?: number }) => {
+    const params = new URLSearchParams();
+    if (filters?.segment) params.append('segment', filters.segment);
+    if (filters?.abc_category) params.append('abc_category', filters.abc_category);
+    if (filters?.min_score !== undefined) params.append('min_score', String(filters.min_score));
+    const response = await api.get(`/api/v1/prioritization/accounts?${params.toString()}`);
     return response.data;
   },
 
@@ -432,6 +446,11 @@ export const prioritizationAPI = {
 
   getThresholds: async () => {
     const response = await api.get('/api/v1/prioritization/thresholds');
+    return response.data;
+  },
+
+  getAccountScores: async (accountId: number) => {
+    const response = await api.get(`/api/v1/prioritization/accounts/${accountId}/scores`);
     return response.data;
   },
 
@@ -481,12 +500,12 @@ export const reportsAPI = {
   },
 
   getValueStakeholderReport: async () => {
-    const response = await api.get('/api/v1/reports/value-stakeholder');
+    const response = await api.get('/api/v1/reports/value-stakeholders');
     return response.data;
   },
 
   getKamPlanReport: async () => {
-    const response = await api.get('/api/v1/reports/kam-plan');
+    const response = await api.get('/api/v1/reports/kam-plan-execution');
     return response.data;
   },
 

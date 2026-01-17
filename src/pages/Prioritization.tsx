@@ -34,9 +34,10 @@ import {
   TrendingUp,
   Filter,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { accountsAPI, adminAPI } from '../services/api';
+import { prioritizationAPI } from '../services/api';
 
 interface PrioritizationCriteria {
   id: number;
@@ -55,13 +56,12 @@ interface AccountScore {
 interface AccountWithPrioritization {
   id: number;
   name: string;
-  segment: string;
-  category_name: string;
-  category_color: string;
-  kam_name: string;
+  segment: string | null;
+  category_name: string | null;
+  category_color: string | null;
+  kam_name: string | null;
   total_score: number;
   abc_category: string;
-  scores: AccountScore[];
 }
 
 interface ABCThreshold {
@@ -89,116 +89,117 @@ const defaultThresholds: ABCThreshold[] = [
 export const Prioritization: React.FC = () => {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<AccountWithPrioritization[]>([]);
-  const [criteria] = useState<PrioritizationCriteria[]>(defaultCriteria);
-  const [thresholds] = useState<ABCThreshold[]>(defaultThresholds);
+  const [criteria, setCriteria] = useState<PrioritizationCriteria[]>(defaultCriteria);
+  const [thresholds, setThresholds] = useState<ABCThreshold[]>(defaultThresholds);
   const [selectedAccount, setSelectedAccount] = useState<AccountWithPrioritization | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingScores, setEditingScores] = useState<{ [key: number]: number }>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [filters, setFilters] = useState({
     segment: '',
     category: '',
-    kam: '',
     minScore: '',
   });
 
   useEffect(() => {
-    loadAccounts();
+    loadData();
   }, []);
 
-  const loadAccounts = async () => {
+  const loadData = async () => {
+    setIsLoading(true);
     try {
-      const [accountsData, criteriaData] = await Promise.all([
-        accountsAPI.getAll(),
-        adminAPI.getPrioritizationCriteria().catch(() => null),
+      const [accountsData, criteriaData, thresholdsData] = await Promise.all([
+        prioritizationAPI.getAccounts(),
+        prioritizationAPI.getCriteria(),
+        prioritizationAPI.getThresholds(),
       ]);
 
-      const activeCriteria = criteriaData && Array.isArray(criteriaData) 
-        ? criteriaData.filter((c: { is_active?: boolean }) => c.is_active !== false)
-        : defaultCriteria;
+      if (Array.isArray(accountsData)) {
+        setAccounts(accountsData);
+      }
 
-      if (accountsData && Array.isArray(accountsData)) {
-        const categoryColors: { [key: string]: string } = {
-          'A': '#22C55E',
-          'B': '#EAB308',
-          'C': '#EF4444',
-          'Estrategica': '#8B5CF6',
-        };
+      if (Array.isArray(criteriaData) && criteriaData.length > 0) {
+        setCriteria(criteriaData);
+      }
 
-        const mappedAccounts: AccountWithPrioritization[] = accountsData.map((account: {
-          id: number;
-          name: string;
-          segment?: string;
-          category_name?: string;
-          kam_user_name?: string;
-          prioritization_score?: number;
-          abc_category?: string;
-        }) => {
-          const totalScore = account.prioritization_score || Math.floor(Math.random() * 100);
-          const abcCategory = account.abc_category || getABCCategory(totalScore);
-          
-          return {
-            id: account.id,
-            name: account.name,
-            segment: account.segment || '-',
-            category_name: account.category_name || '-',
-            category_color: categoryColors[account.category_name || ''] || '#6B7280',
-            kam_name: account.kam_user_name || '-',
-            total_score: totalScore,
-            abc_category: abcCategory,
-            scores: activeCriteria.map((c: { id: number; name: string }) => ({
-              criteria_id: c.id,
-              criteria_name: c.name,
-              score: 3,
-              weighted_score: 0,
-            })),
-          };
-        });
-
-        setAccounts(mappedAccounts);
+      if (Array.isArray(thresholdsData) && thresholdsData.length > 0) {
+        setThresholds(thresholdsData);
       }
     } catch (error) {
-      console.error('Error loading accounts for prioritization:', error);
+      console.error('Error loading prioritization data:', error);
       setAccounts([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleAccountClick = (account: AccountWithPrioritization) => {
+  const handleAccountClick = async (account: AccountWithPrioritization) => {
     setSelectedAccount(account);
-    const scores: { [key: number]: number } = {};
-    account.scores.forEach(s => {
-      scores[s.criteria_id] = s.score;
-    });
-    setEditingScores(scores);
     setIsDialogOpen(true);
+    
+    try {
+      const scores = await prioritizationAPI.getAccountScores(account.id);
+      const scoresMap: { [key: number]: number } = {};
+      
+      if (Array.isArray(scores)) {
+        scores.forEach((s: AccountScore) => {
+          scoresMap[s.criteria_id] = s.score || 1;
+        });
+      }
+      
+      criteria.forEach(c => {
+        if (!(c.id in scoresMap)) {
+          scoresMap[c.id] = 1;
+        }
+      });
+      
+      setEditingScores(scoresMap);
+    } catch (error) {
+      console.error('Error loading account scores:', error);
+      const defaultScores: { [key: number]: number } = {};
+      criteria.forEach(c => {
+        defaultScores[c.id] = 1;
+      });
+      setEditingScores(defaultScores);
+    }
   };
 
-  const handleSaveScores = () => {
+  const handleSaveScores = async () => {
     if (!selectedAccount) return;
 
-    let totalWeightedScore = 0;
-    const updatedScores = selectedAccount.scores.map(s => {
-      const score = editingScores[s.criteria_id] || 0;
-      const criterion = criteria.find(c => c.id === s.criteria_id);
-      const weightedScore = criterion ? (score / 5) * criterion.weight : 0;
-      totalWeightedScore += weightedScore;
-      return {
-        ...s,
-        score,
-        weighted_score: weightedScore,
-      };
-    });
+    setIsSaving(true);
+    try {
+      const scores = Object.entries(editingScores).map(([criteriaId, score]) => ({
+        criteria_id: parseInt(criteriaId),
+        score: score,
+      }));
 
-    const abcCategory = getABCCategory(totalWeightedScore);
+      const result = await prioritizationAPI.updateAccountScores(selectedAccount.id, scores);
+      
+      const newTotalScore = result.total_score || calculateLocalScore();
+      const newAbcCategory = getABCCategory(newTotalScore);
+      
+      setAccounts(accounts.map(a => 
+        a.id === selectedAccount.id 
+          ? { ...a, total_score: newTotalScore, abc_category: newAbcCategory }
+          : a
+      ));
+      
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving scores:', error);
+      alert('Erro ao salvar scores. Tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
-    const updatedAccount: AccountWithPrioritization = {
-      ...selectedAccount,
-      scores: updatedScores,
-      total_score: Math.round(totalWeightedScore),
-      abc_category: abcCategory,
-    };
-
-    setAccounts(accounts.map(a => a.id === selectedAccount.id ? updatedAccount : a));
-    setIsDialogOpen(false);
+  const calculateLocalScore = (): number => {
+    return criteria.reduce((total, c) => {
+      const score = editingScores[c.id] || 1;
+      return total + (score / 5) * c.weight;
+    }, 0);
   };
 
   const getABCCategory = (score: number): string => {
@@ -222,9 +223,17 @@ export const Prioritization: React.FC = () => {
     return true;
   });
 
-  const sortedAccounts = [...filteredAccounts].sort((a, b) => b.total_score - a.total_score);
+  const uniqueSegments = [...new Set(accounts.map(a => a.segment).filter(Boolean))] as string[];
 
-  const uniqueSegments = [...new Set(accounts.map(a => a.segment))];
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  const sortedAccounts = [...filteredAccounts].sort((a, b) => b.total_score - a.total_score);
 
   return (
     <div className="space-y-6">
@@ -235,7 +244,7 @@ export const Prioritization: React.FC = () => {
               Classifique suas contas com base em criterios estrategicos (Curva ABC)
             </p>
           </div>
-          <Button variant="outline" onClick={loadAccounts}>
+          <Button variant="outline" onClick={loadData}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Atualizar
           </Button>
@@ -345,7 +354,7 @@ export const Prioritization: React.FC = () => {
               <div className="flex items-end">
                 <Button
                   variant="outline"
-                  onClick={() => setFilters({ segment: '', category: '', kam: '', minScore: '' })}
+                  onClick={() => setFilters({ segment: '', category: '', minScore: '' })}
                 >
                   Limpar Filtros
                 </Button>
@@ -386,12 +395,14 @@ export const Prioritization: React.FC = () => {
                     <TableCell className="font-medium">{account.name}</TableCell>
                     <TableCell>{account.segment}</TableCell>
                     <TableCell>
-                      <Badge
-                        style={{ backgroundColor: account.category_color }}
-                        className="text-white"
-                      >
-                        {account.category_name}
-                      </Badge>
+                      {account.category_name ? (
+                        <Badge
+                          style={{ backgroundColor: account.category_color || '#6B7280' }}
+                          className="text-white"
+                        >
+                          {account.category_name}
+                        </Badge>
+                      ) : '-'}
                     </TableCell>
                     <TableCell>{account.kam_name}</TableCell>
                     <TableCell>
@@ -479,7 +490,16 @@ export const Prioritization: React.FC = () => {
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancelar
                   </Button>
-                  <Button onClick={handleSaveScores}>Salvar</Button>
+                  <Button onClick={handleSaveScores} disabled={isSaving || criteria.length === 0}>
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      'Salvar'
+                    )}
+                  </Button>
                   <Button
                     variant="secondary"
                     onClick={() => navigate(`/accounts/${selectedAccount.id}`)}

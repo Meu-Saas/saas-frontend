@@ -33,7 +33,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
+  Loader2,
 } from 'lucide-react';
+import { reportsAPI, adminAPI } from '../services/api';
 
 interface PipelineStage {
   name: string;
@@ -55,7 +57,6 @@ interface ActivityReport {
   completed: number;
   pending: number;
   overdue: number;
-  by_type: { type: string; count: number }[];
 }
 
 interface AccountHealth {
@@ -84,6 +85,11 @@ interface KamPlanExecution {
   strategic_pillars: number;
 }
 
+interface KamUser {
+  id: number;
+  full_name: string;
+}
+
 export const Reports: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('pipeline');
@@ -91,6 +97,8 @@ export const Reports: React.FC = () => {
   const [selectedKam, setSelectedKam] = useState('all');
   const [selectedSegment, setSelectedSegment] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [kamUsers, setKamUsers] = useState<KamUser[]>([]);
 
   const [pipelineData, setPipelineData] = useState<PipelineStage[]>([]);
   const [forecastData, setForecastData] = useState<ForecastData[]>([]);
@@ -100,169 +108,99 @@ export const Reports: React.FC = () => {
   const [kamPlanData, setKamPlanData] = useState<KamPlanExecution[]>([]);
 
   useEffect(() => {
+    loadKamUsers();
+  }, []);
+
+  useEffect(() => {
     loadReportData();
-  }, [dateRange, selectedKam, selectedSegment]);
+  }, [dateRange, selectedKam, selectedSegment, selectedCategory]);
 
-  const loadReportData = () => {
-    setPipelineData([
-      { name: 'Prospeccao', count: 15, value: 450000, color: '#94A3B8' },
-      { name: 'Qualificacao', count: 12, value: 380000, color: '#60A5FA' },
-      { name: 'Proposta', count: 8, value: 520000, color: '#FBBF24' },
-      { name: 'Negociacao', count: 5, value: 350000, color: '#F97316' },
-      { name: 'Fechamento', count: 3, value: 280000, color: '#22C55E' },
-    ]);
+  const loadKamUsers = async () => {
+    try {
+      const users = await adminAPI.getUsers();
+      if (Array.isArray(users)) {
+        const kams = users.filter((u: { role: string }) => u.role === 'kam' || u.role === 'admin');
+        setKamUsers(kams);
+      }
+    } catch (error) {
+      console.error('Error loading KAM users:', error);
+    }
+  };
 
-    setForecastData([
-      { month: 'Jan', projected: 150000, actual: 145000, confidence: 95 },
-      { month: 'Fev', projected: 180000, actual: 175000, confidence: 92 },
-      { month: 'Mar', projected: 200000, actual: 210000, confidence: 88 },
-      { month: 'Abr', projected: 220000, actual: 0, confidence: 75 },
-      { month: 'Mai', projected: 250000, actual: 0, confidence: 60 },
-      { month: 'Jun', projected: 280000, actual: 0, confidence: 45 },
-    ]);
+  const loadReportData = async () => {
+    setIsLoading(true);
+    try {
+      const filters = {
+        date_range: dateRange,
+        kam_id: selectedKam !== 'all' ? parseInt(selectedKam) : undefined,
+        segment: selectedSegment !== 'all' ? selectedSegment : undefined,
+        category: selectedCategory !== 'all' ? selectedCategory : undefined,
+      };
 
-    setActivityReports([
-      {
-        kam_name: 'Carlos Silva',
-        total_activities: 45,
-        completed: 38,
-        pending: 5,
-        overdue: 2,
-        by_type: [
-          { type: 'Reuniao', count: 15 },
-          { type: 'Ligacao', count: 12 },
-          { type: 'Email', count: 10 },
-          { type: 'Tarefa', count: 8 },
-        ],
-      },
-      {
-        kam_name: 'Ana Santos',
-        total_activities: 52,
-        completed: 48,
-        pending: 3,
-        overdue: 1,
-        by_type: [
-          { type: 'Reuniao', count: 20 },
-          { type: 'Ligacao', count: 15 },
-          { type: 'Email', count: 12 },
-          { type: 'Tarefa', count: 5 },
-        ],
-      },
-      {
-        kam_name: 'Roberto Lima',
-        total_activities: 38,
-        completed: 30,
-        pending: 4,
-        overdue: 4,
-        by_type: [
-          { type: 'Reuniao', count: 12 },
-          { type: 'Ligacao', count: 10 },
-          { type: 'Email', count: 8 },
-          { type: 'Tarefa', count: 8 },
-        ],
-      },
-    ]);
+      const [
+        pipelineResult,
+        forecastResult,
+        activitiesResult,
+        healthResult,
+        valueResult,
+        kamPlanResult,
+      ] = await Promise.all([
+        reportsAPI.getPipelineReport(filters).catch(() => []),
+        reportsAPI.getForecastReport({ date_range: dateRange }).catch(() => []),
+        reportsAPI.getActivitiesReport({ date_range: dateRange, kam_id: filters.kam_id }).catch(() => []),
+        reportsAPI.getAccountHealthReport({ segment: filters.segment, category: filters.category }).catch(() => []),
+        reportsAPI.getValueStakeholderReport().catch(() => []),
+        reportsAPI.getKamPlanReport().catch(() => []),
+      ]);
 
-    setAccountHealthData([
-      {
-        account_name: 'Empresa Alpha',
-        prioritization_score: 85,
-        abc_category: 'A',
-        value_gap: 2,
-        risk_count: 1,
-        engagement_score: 90,
-        health_status: 'Saudavel',
-      },
-      {
-        account_name: 'Empresa Beta',
-        prioritization_score: 72,
-        abc_category: 'A',
-        value_gap: 5,
-        risk_count: 2,
-        engagement_score: 75,
-        health_status: 'Atencao',
-      },
-      {
-        account_name: 'Empresa Gamma',
-        prioritization_score: 55,
-        abc_category: 'B',
-        value_gap: 8,
-        risk_count: 3,
-        engagement_score: 45,
-        health_status: 'Critico',
-      },
-      {
-        account_name: 'Empresa Delta',
-        prioritization_score: 68,
-        abc_category: 'B',
-        value_gap: 3,
-        risk_count: 1,
-        engagement_score: 80,
-        health_status: 'Saudavel',
-      },
-    ]);
+      if (Array.isArray(pipelineResult)) {
+        setPipelineData(pipelineResult);
+      }
 
-    setValueStakeholderData([
-      {
-        account_name: 'Empresa Alpha',
-        stakeholder_count: 8,
-        supporter_percentage: 75,
-        imbativel_count: 3,
-        vulneravel_count: 1,
-      },
-      {
-        account_name: 'Empresa Beta',
-        stakeholder_count: 6,
-        supporter_percentage: 50,
-        imbativel_count: 2,
-        vulneravel_count: 2,
-      },
-      {
-        account_name: 'Empresa Gamma',
-        stakeholder_count: 5,
-        supporter_percentage: 40,
-        imbativel_count: 1,
-        vulneravel_count: 3,
-      },
-      {
-        account_name: 'Empresa Delta',
-        stakeholder_count: 7,
-        supporter_percentage: 85,
-        imbativel_count: 4,
-        vulneravel_count: 0,
-      },
-    ]);
+      if (Array.isArray(forecastResult)) {
+        setForecastData(forecastResult);
+      }
 
-    setKamPlanData([
-      {
-        account_name: 'Empresa Alpha',
-        total_actions: 12,
-        completed_actions: 10,
-        completion_rate: 83,
-        strategic_pillars: 4,
-      },
-      {
-        account_name: 'Empresa Beta',
-        total_actions: 8,
-        completed_actions: 5,
-        completion_rate: 62,
-        strategic_pillars: 3,
-      },
-      {
-        account_name: 'Empresa Gamma',
-        total_actions: 10,
-        completed_actions: 3,
-        completion_rate: 30,
-        strategic_pillars: 2,
-      },
-      {
-        account_name: 'Empresa Delta',
-        total_actions: 15,
-        completed_actions: 14,
-        completion_rate: 93,
-        strategic_pillars: 5,
-      },
-    ]);
+      if (Array.isArray(activitiesResult)) {
+        setActivityReports(activitiesResult);
+      }
+
+      if (Array.isArray(healthResult)) {
+        setAccountHealthData(healthResult.map((h: AccountHealth & { account_id?: number }) => ({
+          account_name: h.account_name || `Conta ${h.account_id}`,
+          prioritization_score: h.prioritization_score || 0,
+          abc_category: h.abc_category || 'C',
+          value_gap: h.value_gap || 0,
+          risk_count: h.risk_count || 0,
+          engagement_score: h.engagement_score || 0,
+          health_status: h.health_status || 'Desconhecido',
+        })));
+      }
+
+      if (Array.isArray(valueResult)) {
+        setValueStakeholderData(valueResult.map((v: ValueStakeholderReport & { account_id?: number }) => ({
+          account_name: v.account_name || `Conta ${v.account_id}`,
+          stakeholder_count: v.stakeholder_count || 0,
+          supporter_percentage: v.supporter_percentage || 0,
+          imbativel_count: v.imbativel_count || 0,
+          vulneravel_count: v.vulneravel_count || 0,
+        })));
+      }
+
+      if (Array.isArray(kamPlanResult)) {
+        setKamPlanData(kamPlanResult.map((k: KamPlanExecution & { account_id?: number }) => ({
+          account_name: k.account_name || `Conta ${k.account_id}`,
+          total_actions: k.total_actions || 0,
+          completed_actions: k.completed_actions || 0,
+          completion_rate: k.completion_rate || 0,
+          strategic_pillars: k.strategic_pillars || 0,
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading report data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -316,8 +254,16 @@ export const Reports: React.FC = () => {
       navigate(`/accounts?search=${encodeURIComponent(accountName)}`);
     };
 
-    const totalPipelineValue = pipelineData.reduce((sum, stage) => sum + stage.value, 0);
+  const totalPipelineValue = pipelineData.reduce((sum, stage) => sum + stage.value, 0);
   const totalOpportunities = pipelineData.reduce((sum, stage) => sum + stage.count, 0);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -371,9 +317,9 @@ export const Reports: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="carlos">Carlos Silva</SelectItem>
-                  <SelectItem value="ana">Ana Santos</SelectItem>
-                  <SelectItem value="roberto">Roberto Lima</SelectItem>
+                  {kamUsers.map(kam => (
+                    <SelectItem key={kam.id} value={String(kam.id)}>{kam.full_name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -385,23 +331,25 @@ export const Reports: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="tech">Tecnologia</SelectItem>
-                  <SelectItem value="finance">Financeiro</SelectItem>
-                  <SelectItem value="retail">Varejo</SelectItem>
+                  <SelectItem value="Tecnologia">Tecnologia</SelectItem>
+                  <SelectItem value="Financeiro">Financeiro</SelectItem>
+                  <SelectItem value="Varejo">Varejo</SelectItem>
+                  <SelectItem value="Industria">Industria</SelectItem>
+                  <SelectItem value="Servicos">Servicos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Categoria</Label>
-              <Select defaultValue="all">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="a">Categoria A</SelectItem>
-                  <SelectItem value="b">Categoria B</SelectItem>
-                  <SelectItem value="c">Categoria C</SelectItem>
+                  <SelectItem value="A">Categoria A</SelectItem>
+                  <SelectItem value="B">Categoria B</SelectItem>
+                  <SelectItem value="C">Categoria C</SelectItem>
                 </SelectContent>
               </Select>
             </div>

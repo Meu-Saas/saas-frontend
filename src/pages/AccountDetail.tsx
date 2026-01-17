@@ -164,7 +164,8 @@ export const AccountDetail: React.FC = () => {
       }
 
       if (contactsData && Array.isArray(contactsData)) {
-        setContacts(contactsData.map((c: { id: number; name: string; email?: string; phone?: string; role?: string; is_key_stakeholder?: boolean }) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setContacts((contactsData as any[]).map((c) => ({
           id: String(c.id),
           name: c.name,
           email: c.email || null,
@@ -175,7 +176,8 @@ export const AccountDetail: React.FC = () => {
       }
 
       if (opportunitiesData && Array.isArray(opportunitiesData)) {
-        setOpportunities(opportunitiesData.map((o: { id: number; title: string; value?: number; stage_name?: string; expected_close_date?: string }) => ({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setOpportunities((opportunitiesData as any[]).map((o) => ({
           id: String(o.id),
           title: o.title,
           value: o.value || null,
@@ -239,7 +241,7 @@ export const AccountDetail: React.FC = () => {
       if (!activityForm.title || !id) return;
       setSaving(true);
       try {
-        await activitiesAPI.create({ account_id: Number(id), title: activityForm.title, type: activityForm.type, scheduled_at: activityForm.scheduled_at || new Date().toISOString(), description: activityForm.description || undefined });
+        await activitiesAPI.create({ account_id: Number(id), title: activityForm.title, scheduled_at: activityForm.scheduled_at || new Date().toISOString(), description: activityForm.description || undefined });
         setIsActivityDialogOpen(false);
         setActivityForm({ title: '', type: 'meeting', scheduled_at: '', description: '' });
         loadAccountData();
