@@ -41,10 +41,29 @@ export enum OpportunityStatus {
 export interface Account {
   id: string;
   user_id: string;
+  org_id?: number;
   name: string;
-  industry: string | null;
-  description: string | null;
-  kam_stage: KAMStage;
+  industry?: string | null;
+  description?: string | null;
+  kam_stage?: KAMStage;
+  cnpj?: string | null;
+  website?: string | null;
+  segment?: string | null;
+  region?: string | null;
+  city?: string | null;
+  state?: string | null;
+  estimated_revenue?: number | null;
+  employee_count?: number | null;
+  category_id?: number | null;
+  category_name?: string | null;
+  category_color?: string | null;
+  status?: string;
+  is_strategic?: boolean;
+  notes?: string | null;
+  prioritization_score?: number;
+  abc_category?: string;
+  kam_user_id?: number | null;
+  kam_user_name?: string | null;
   created_at: string;
   updated_at: string;
 }
