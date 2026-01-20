@@ -14,6 +14,8 @@ import { Activities } from './pages/Activities';
 import { Prioritization } from './pages/Prioritization';
 import { Reports } from './pages/Reports';
 import { Admin } from './pages/Admin';
+import { Profile } from './pages/Profile';
+import { Settings } from './pages/Settings';
 import './App.css';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -97,6 +99,8 @@ function AppRoutes() {
         <Route path="/reports" element={<Reports />} />
         <Route path="/admin" element={<Admin />} />
         <Route path="/admin/:section" element={<Admin />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
       
       <Route path="/" element={<Navigate to="/dashboard" />} />
