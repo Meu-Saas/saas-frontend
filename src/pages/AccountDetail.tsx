@@ -224,8 +224,18 @@ export const AccountDetail: React.FC = () => {
     try {
       await accountsAPI.update(id, {
         name: editedAccount.name,
-        industry: editedAccount.segment || undefined,
-        description: editedAccount.notes || undefined,
+        cnpj: editedAccount.cnpj || undefined,
+        website: editedAccount.website || undefined,
+        segment: editedAccount.segment || undefined,
+        region: editedAccount.region || undefined,
+        city: editedAccount.city || undefined,
+        state: editedAccount.state || undefined,
+        estimated_revenue: editedAccount.estimated_revenue || undefined,
+        employee_count: editedAccount.employee_count || undefined,
+        category_id: editedAccount.category_id ? Number(editedAccount.category_id) : undefined,
+        status: editedAccount.status || undefined,
+        is_strategic: editedAccount.is_strategic,
+        notes: editedAccount.notes || undefined,
       });
       // Reload account data to get fresh data from backend
       await loadAccountData();

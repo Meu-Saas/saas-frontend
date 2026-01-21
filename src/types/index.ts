@@ -19,7 +19,9 @@ export interface RegisterRequest {
 
 export interface Token {
   access_token: string;
+  refresh_token?: string;
   token_type: string;
+  expires_in?: number;
 }
 
 export enum KAMStage {
@@ -123,6 +125,18 @@ export interface CreateAccountRequest {
   industry?: string;
   description?: string;
   kam_stage?: KAMStage;
+  cnpj?: string;
+  website?: string;
+  segment?: string;
+  region?: string;
+  city?: string;
+  state?: string;
+  estimated_revenue?: number;
+  employee_count?: number;
+  category_id?: number;
+  status?: string;
+  is_strategic?: boolean;
+  notes?: string;
 }
 
 export interface CreateMeetingRequest {

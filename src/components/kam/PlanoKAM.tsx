@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { kamPlanAPI } from '../../services/api';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -228,10 +229,40 @@ const defaultPillars: KAMPillar[] = [
   },
 ];
 
-export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId: _accountId }) => {
+export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [pillars, setPillars] = useState<KAMPillar[]>(defaultPillars);
   const [selectedPillar, setSelectedPillar] = useState<KAMPillar | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadPillars();
+  }, [accountId]);
+
+  const loadPillars = async () => {
+    if (!accountId) return;
+    setLoading(true);
+    try {
+      const data = await kamPlanAPI.getPillars(accountId);
+      if (Array.isArray(data) && data.length > 0) {
+        setPillars(data.map((p: { id: number; name: string; description?: string; tactical_description?: string; strategic_description?: string; maturity_items?: { id: string; description: string; is_checked: boolean; score: number }[]; current_level?: string; kam_analysis?: string }) => ({
+          id: String(p.id),
+          name: p.name || '',
+          description: p.description || '',
+          tactical_description: p.tactical_description || '',
+          strategic_description: p.strategic_description || '',
+          maturity_items: p.maturity_items || [],
+          current_level: (p.current_level || 'tactical') as 'tactical' | 'transition' | 'strategic',
+          kam_analysis: p.kam_analysis || '',
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading pillars:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -264,12 +295,32 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId: _accou
     setIsDialogOpen(true);
   };
 
-  const handleSavePillar = () => {
-    if (selectedPillar) {
+  const handleSavePillar = async () => {
+    if (!selectedPillar || !accountId) return;
+    setSaving(true);
+    try {
+      await kamPlanAPI.updatePillar(accountId, Number(selectedPillar.id), {
+        current_level: selectedPillar.current_level,
+        kam_analysis: selectedPillar.kam_analysis,
+        maturity_items: selectedPillar.maturity_items,
+      });
       setPillars(pillars.map(p => p.id === selectedPillar.id ? selectedPillar : p));
       setIsDialogOpen(false);
+    } catch (error) {
+      console.error('Error saving pillar:', error);
+      alert('Erro ao salvar pilar. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Carregando pilares...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -419,7 +470,7 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId: _accou
   );
 };
 
-export const DiagnosticoContexto: React.FC<{ accountId: string }> = ({ accountId: _accountId }) => {
+export const DiagnosticoContexto: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [diagnostic, setDiagnostic] = useState<DiagnosticData>({
     current_situation: '',
     strategic_objectives: '',
@@ -439,25 +490,121 @@ export const DiagnosticoContexto: React.FC<{ accountId: string }> = ({ accountId
     priority: 'medium',
     affected_area: '',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleAddPain = () => {
-    if (newPain.description) {
+  useEffect(() => {
+    loadDiagnostic();
+  }, [accountId]);
+
+  const loadDiagnostic = async () => {
+    if (!accountId) return;
+    setLoading(true);
+    try {
+      const [diagnosticData, painsData] = await Promise.all([
+        kamPlanAPI.getDiagnostic(accountId).catch(() => null),
+        kamPlanAPI.getPains(accountId).catch(() => []),
+      ]);
+
+      if (diagnosticData) {
+        setDiagnostic({
+          current_situation: diagnosticData.current_situation || '',
+          strategic_objectives: diagnosticData.strategic_objectives || '',
+          main_initiatives: diagnosticData.main_initiatives || '',
+          pains: Array.isArray(painsData) ? painsData.map((p: { id: number; description: string; impact: string; priority: string; affected_area?: string }) => ({
+            id: String(p.id),
+            description: p.description,
+            impact: p.impact as 'low' | 'medium' | 'high',
+            priority: p.priority as 'low' | 'medium' | 'high',
+            affected_area: p.affected_area || '',
+          })) : [],
+          swot: {
+            strengths: diagnosticData.swot_strengths || '',
+            weaknesses: diagnosticData.swot_weaknesses || '',
+            opportunities: diagnosticData.swot_opportunities || '',
+            threats: diagnosticData.swot_threats || '',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Error loading diagnostic:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveDiagnostic = async () => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      await kamPlanAPI.updateDiagnostic(accountId, {
+        current_situation: diagnostic.current_situation,
+        strategic_objectives: diagnostic.strategic_objectives,
+        initiatives: diagnostic.main_initiatives,
+        swot: {
+          swot_strengths: diagnostic.swot.strengths,
+          swot_weaknesses: diagnostic.swot.weaknesses,
+          swot_opportunities: diagnostic.swot.opportunities,
+          swot_threats: diagnostic.swot.threats,
+        },
+      });
+      alert('Diagnostico salvo com sucesso!');
+    } catch (error) {
+      console.error('Error saving diagnostic:', error);
+      alert('Erro ao salvar diagnostico. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddPain = async () => {
+    if (!newPain.description || !accountId) return;
+    setSaving(true);
+    try {
+      const createdPain = await kamPlanAPI.createPain(accountId, {
+        description: newPain.description,
+        impact: newPain.impact || 'medium',
+        priority: newPain.priority || 'medium',
+      });
       const pain: Pain = {
-        id: Date.now().toString(),
-        description: newPain.description || '',
-        impact: newPain.impact as 'low' | 'medium' | 'high',
-        priority: newPain.priority as 'low' | 'medium' | 'high',
-        affected_area: newPain.affected_area || '',
+        id: String(createdPain.id),
+        description: createdPain.description,
+        impact: createdPain.impact as 'low' | 'medium' | 'high',
+        priority: createdPain.priority as 'low' | 'medium' | 'high',
+        affected_area: createdPain.affected_area || '',
       };
       setDiagnostic({ ...diagnostic, pains: [...diagnostic.pains, pain] });
       setNewPain({ description: '', impact: 'medium', priority: 'medium', affected_area: '' });
       setIsAddingPain(false);
+    } catch (error) {
+      console.error('Error creating pain:', error);
+      alert('Erro ao adicionar dor. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleRemovePain = (id: string) => {
-    setDiagnostic({ ...diagnostic, pains: diagnostic.pains.filter(p => p.id !== id) });
+  const handleRemovePain = async (id: string) => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      await kamPlanAPI.deletePain(accountId, Number(id));
+      setDiagnostic({ ...diagnostic, pains: diagnostic.pains.filter(p => p.id !== id) });
+    } catch (error) {
+      console.error('Error deleting pain:', error);
+      alert('Erro ao remover dor. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Carregando diagnostico...</div>
+      </div>
+    );
+  }
 
   const getImpactColor = (impact: string) => {
     switch (impact) {
@@ -688,13 +835,15 @@ export const DiagnosticoContexto: React.FC<{ accountId: string }> = ({ accountId
       </Card>
 
       <div className="flex justify-end">
-        <Button>Salvar Diagnostico</Button>
+        <Button onClick={handleSaveDiagnostic} disabled={saving}>
+          {saving ? 'Salvando...' : 'Salvar Diagnostico'}
+        </Button>
       </div>
     </div>
   );
 };
 
-export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId: _accountId }) => {
+export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [isAddingStakeholder, setIsAddingStakeholder] = useState(false);
   const [newStakeholder, setNewStakeholder] = useState<Partial<Stakeholder>>({
@@ -708,21 +857,68 @@ export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId: _
     engagement_strategy: '',
     show_in_orgchart: true,
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleAddStakeholder = () => {
-    if (newStakeholder.contact_name) {
-      const stakeholder: Stakeholder = {
-        id: Date.now().toString(),
-        contact_id: '',
-        contact_name: newStakeholder.contact_name || '',
+  useEffect(() => {
+    loadStakeholders();
+  }, [accountId]);
+
+  const loadStakeholders = async () => {
+    if (!accountId) return;
+    setLoading(true);
+    try {
+      const data = await kamPlanAPI.getStakeholders(accountId);
+      if (Array.isArray(data)) {
+        setStakeholders(data.map((s: { id: number; contact_name: string; role?: string; area?: string; power_level?: number; support_level?: string; relationship_level?: string; objective?: string; engagement_strategy?: string; show_in_orgchart?: boolean; superior_id?: number | null }) => ({
+          id: String(s.id),
+          contact_id: '',
+          contact_name: s.contact_name || '',
+          role: s.role || '',
+          area: s.area || '',
+          power_level: s.power_level || 3,
+          support_level: (s.support_level || 'neutral') as 'supporter' | 'neutral' | 'opponent',
+          relationship_level: (s.relationship_level || 'neutral') as 'cold' | 'neutral' | 'good' | 'sponsor',
+          objective: s.objective || '',
+          engagement_strategy: s.engagement_strategy || '',
+          show_in_orgchart: s.show_in_orgchart ?? true,
+          superior_id: s.superior_id || null,
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading stakeholders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddStakeholder = async () => {
+    if (!newStakeholder.contact_name || !accountId) return;
+    setSaving(true);
+    try {
+      const created = await kamPlanAPI.createStakeholder(accountId, {
+        contact_name: newStakeholder.contact_name,
         role: newStakeholder.role || '',
         area: newStakeholder.area || '',
         power_level: newStakeholder.power_level || 3,
-        support_level: newStakeholder.support_level as 'supporter' | 'neutral' | 'opponent',
-        relationship_level: newStakeholder.relationship_level as 'cold' | 'neutral' | 'good' | 'sponsor',
+        support_level: newStakeholder.support_level || 'neutral',
+        relationship_level: newStakeholder.relationship_level || 'neutral',
         objective: newStakeholder.objective || '',
         engagement_strategy: newStakeholder.engagement_strategy || '',
         show_in_orgchart: newStakeholder.show_in_orgchart ?? true,
+      });
+      const stakeholder: Stakeholder = {
+        id: String(created.id),
+        contact_id: '',
+        contact_name: created.contact_name || '',
+        role: created.role || '',
+        area: created.area || '',
+        power_level: created.power_level || 3,
+        support_level: (created.support_level || 'neutral') as 'supporter' | 'neutral' | 'opponent',
+        relationship_level: (created.relationship_level || 'neutral') as 'cold' | 'neutral' | 'good' | 'sponsor',
+        objective: created.objective || '',
+        engagement_strategy: created.engagement_strategy || '',
+        show_in_orgchart: created.show_in_orgchart ?? true,
         superior_id: null,
       };
       setStakeholders([...stakeholders, stakeholder]);
@@ -738,8 +934,35 @@ export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId: _
         show_in_orgchart: true,
       });
       setIsAddingStakeholder(false);
+    } catch (error) {
+      console.error('Error creating stakeholder:', error);
+      alert('Erro ao adicionar stakeholder. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
+
+  const handleDeleteStakeholder = async (id: string) => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      await kamPlanAPI.deleteStakeholder(accountId, Number(id));
+      setStakeholders(stakeholders.filter(s => s.id !== id));
+    } catch (error) {
+      console.error('Error deleting stakeholder:', error);
+      alert('Erro ao remover stakeholder. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Carregando stakeholders...</div>
+      </div>
+    );
+  }
 
   const getSupportColor = (support: string) => {
     switch (support) {
@@ -944,7 +1167,7 @@ export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId: _
   );
 };
 
-export const WalletShare: React.FC<{ accountId: string }> = ({ accountId: _accountId }) => {
+export const WalletShare: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [lines, setLines] = useState<WalletShareLine[]>([]);
   const [isAddingLine, setIsAddingLine] = useState(false);
   const [newLine, setNewLine] = useState<Partial<WalletShareLine>>({
@@ -953,29 +1176,93 @@ export const WalletShare: React.FC<{ accountId: string }> = ({ accountId: _accou
     current_revenue: 0,
     priority: 'medium',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleAddLine = () => {
-    if (newLine.business_line) {
+  useEffect(() => {
+    loadWalletShare();
+  }, [accountId]);
+
+  const loadWalletShare = async () => {
+    if (!accountId) return;
+    setLoading(true);
+    try {
+      const data = await kamPlanAPI.getWalletShare(accountId);
+      if (Array.isArray(data)) {
+        setLines(data.map((item: { id: number; business_line: string; annual_potential?: number; current_revenue?: number; participation_percentage?: number; gap?: number; priority?: string }) => ({
+          id: String(item.id),
+          business_line: item.business_line || '',
+          annual_potential: item.annual_potential || 0,
+          current_revenue: item.current_revenue || 0,
+          participation_percentage: item.participation_percentage || 0,
+          gap: item.gap || 0,
+          priority: (item.priority || 'medium') as 'low' | 'medium' | 'high',
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading wallet share:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddLine = async () => {
+    if (!newLine.business_line || !accountId) return;
+    setSaving(true);
+    try {
       const potential = newLine.annual_potential || 0;
       const current = newLine.current_revenue || 0;
-      const line: WalletShareLine = {
-        id: Date.now().toString(),
-        business_line: newLine.business_line || '',
+      const created = await kamPlanAPI.createWalletShareItem(accountId, {
+        business_line: newLine.business_line,
         annual_potential: potential,
         current_revenue: current,
-        participation_percentage: potential > 0 ? (current / potential) * 100 : 0,
-        gap: potential - current,
-        priority: newLine.priority as 'low' | 'medium' | 'high',
+        priority: newLine.priority || 'medium',
+      });
+      const line: WalletShareLine = {
+        id: String(created.id),
+        business_line: created.business_line || '',
+        annual_potential: created.annual_potential || 0,
+        current_revenue: created.current_revenue || 0,
+        participation_percentage: created.participation_percentage || (potential > 0 ? (current / potential) * 100 : 0),
+        gap: created.gap || (potential - current),
+        priority: (created.priority || 'medium') as 'low' | 'medium' | 'high',
       };
       setLines([...lines, line]);
       setNewLine({ business_line: '', annual_potential: 0, current_revenue: 0, priority: 'medium' });
       setIsAddingLine(false);
+    } catch (error) {
+      console.error('Error creating wallet share item:', error);
+      alert('Erro ao adicionar linha. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteLine = async (id: string) => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      await kamPlanAPI.deleteWalletShareItem(accountId, Number(id));
+      setLines(lines.filter(l => l.id !== id));
+    } catch (error) {
+      console.error('Error deleting wallet share item:', error);
+      alert('Erro ao remover linha. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Carregando wallet share...</div>
+      </div>
+    );
+  }
 
   const totalPotential = lines.reduce((sum, l) => sum + l.annual_potential, 0);
   const totalCurrent = lines.reduce((sum, l) => sum + l.current_revenue, 0);
@@ -1138,7 +1425,7 @@ export const WalletShare: React.FC<{ accountId: string }> = ({ accountId: _accou
   );
 };
 
-export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId: _accountId }) => {
+export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [actions, setActions] = useState<KAMAction[]>([]);
   const [isAddingAction, setIsAddingAction] = useState(false);
   const [newAction, setNewAction] = useState<Partial<KAMAction>>({
@@ -1151,6 +1438,8 @@ export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId: _acco
     status: 'planned',
     result: '',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const actionTypes = [
     { value: 'meeting', label: 'Reuniao C-level' },
@@ -1162,20 +1451,62 @@ export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId: _acco
     { value: 'other', label: 'Outro' },
   ];
 
-  const handleAddAction = () => {
-    if (newAction.action) {
-      const action: KAMAction = {
-        id: Date.now().toString(),
+  useEffect(() => {
+    loadActions();
+  }, [accountId]);
+
+  const loadActions = async () => {
+    if (!accountId) return;
+    setLoading(true);
+    try {
+      const data = await kamPlanAPI.getActions(accountId);
+      if (Array.isArray(data)) {
+        setActions(data.map((a: { id: number; strategic_objective?: string; action: string; action_type?: string; main_stakeholder_id?: number | null; main_stakeholder_name?: string | null; responsible?: string; planned_start_date?: string; planned_end_date?: string; status?: string; result?: string }) => ({
+          id: String(a.id),
+          strategic_objective: a.strategic_objective || '',
+          action: a.action || '',
+          action_type: a.action_type || 'meeting',
+          main_stakeholder_id: a.main_stakeholder_id || null,
+          main_stakeholder_name: a.main_stakeholder_name || null,
+          responsible: a.responsible || '',
+          planned_start_date: a.planned_start_date || '',
+          planned_end_date: a.planned_end_date || '',
+          status: (a.status || 'planned') as 'planned' | 'in_progress' | 'completed' | 'cancelled',
+          result: a.result || '',
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading actions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddAction = async () => {
+    if (!newAction.action || !accountId) return;
+    setSaving(true);
+    try {
+      const created = await kamPlanAPI.createAction(accountId, {
         strategic_objective: newAction.strategic_objective || '',
-        action: newAction.action || '',
+        action: newAction.action,
         action_type: newAction.action_type || 'meeting',
-        main_stakeholder_id: null,
-        main_stakeholder_name: null,
         responsible: newAction.responsible || '',
-        planned_start_date: newAction.planned_start_date || '',
-        planned_end_date: newAction.planned_end_date || '',
-        status: newAction.status as 'planned' | 'in_progress' | 'completed' | 'cancelled',
-        result: newAction.result || '',
+        planned_start_date: newAction.planned_start_date || undefined,
+        planned_end_date: newAction.planned_end_date || undefined,
+        status: newAction.status || 'planned',
+      });
+      const action: KAMAction = {
+        id: String(created.id),
+        strategic_objective: created.strategic_objective || '',
+        action: created.action || '',
+        action_type: created.action_type || 'meeting',
+        main_stakeholder_id: created.main_stakeholder_id || null,
+        main_stakeholder_name: created.main_stakeholder_name || null,
+        responsible: created.responsible || '',
+        planned_start_date: created.planned_start_date || '',
+        planned_end_date: created.planned_end_date || '',
+        status: (created.status || 'planned') as 'planned' | 'in_progress' | 'completed' | 'cancelled',
+        result: created.result || '',
       };
       setActions([...actions, action]);
       setNewAction({
@@ -1189,8 +1520,35 @@ export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId: _acco
         result: '',
       });
       setIsAddingAction(false);
+    } catch (error) {
+      console.error('Error creating action:', error);
+      alert('Erro ao adicionar acao. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
+
+  const handleDeleteAction = async (id: string) => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      await kamPlanAPI.deleteAction(accountId, Number(id));
+      setActions(actions.filter(a => a.id !== id));
+    } catch (error) {
+      console.error('Error deleting action:', error);
+      alert('Erro ao remover acao. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Carregando acoes...</div>
+      </div>
+    );
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -1360,7 +1718,7 @@ export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId: _acco
   );
 };
 
-export const RiscosConcorrencia: React.FC<{ accountId: string }> = ({ accountId: _accountId }) => {
+export const RiscosConcorrencia: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [isAddingRisk, setIsAddingRisk] = useState(false);
@@ -1379,6 +1737,8 @@ export const RiscosConcorrencia: React.FC<{ accountId: string }> = ({ accountId:
     strong_points: '',
     weak_points: '',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const riskTypes = [
     { value: 'financial', label: 'Financeiro' },
@@ -1387,40 +1747,146 @@ export const RiscosConcorrencia: React.FC<{ accountId: string }> = ({ accountId:
     { value: 'operational', label: 'Operacional' },
   ];
 
-  const handleAddRisk = () => {
-    if (newRisk.description) {
+  useEffect(() => {
+    loadData();
+  }, [accountId]);
+
+  const loadData = async () => {
+    if (!accountId) return;
+    setLoading(true);
+    try {
+      const [risksData, competitorsData] = await Promise.all([
+        kamPlanAPI.getRisks(accountId).catch(() => []),
+        kamPlanAPI.getCompetitors(accountId).catch(() => []),
+      ]);
+
+      if (Array.isArray(risksData)) {
+        setRisks(risksData.map((r: { id: number; description: string; type?: string; probability?: number; impact?: number; exposure?: number; mitigation_plan?: string }) => ({
+          id: String(r.id),
+          description: r.description || '',
+          type: (r.type || 'operational') as 'financial' | 'political' | 'technical' | 'operational',
+          probability: r.probability || 3,
+          impact: r.impact || 3,
+          exposure: r.exposure || (r.probability || 3) * (r.impact || 3),
+          mitigation_plan: r.mitigation_plan || '',
+        })));
+      }
+
+      if (Array.isArray(competitorsData)) {
+        setCompetitors(competitorsData.map((c: { id: number; name: string; area?: string; perceived_strength?: number; strong_points?: string; weak_points?: string }) => ({
+          id: String(c.id),
+          name: c.name || '',
+          area: c.area || '',
+          perceived_strength: c.perceived_strength || 3,
+          strong_points: c.strong_points || '',
+          weak_points: c.weak_points || '',
+        })));
+      }
+    } catch (error) {
+      console.error('Error loading risks and competitors:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddRisk = async () => {
+    if (!newRisk.description || !accountId) return;
+    setSaving(true);
+    try {
       const prob = newRisk.probability || 3;
       const imp = newRisk.impact || 3;
-      const risk: Risk = {
-        id: Date.now().toString(),
-        description: newRisk.description || '',
-        type: newRisk.type as 'financial' | 'political' | 'technical' | 'operational',
+      const created = await kamPlanAPI.createRisk(accountId, {
+        description: newRisk.description,
+        type: newRisk.type || 'operational',
         probability: prob,
         impact: imp,
-        exposure: prob * imp,
         mitigation_plan: newRisk.mitigation_plan || '',
+      });
+      const risk: Risk = {
+        id: String(created.id),
+        description: created.description || '',
+        type: (created.type || 'operational') as 'financial' | 'political' | 'technical' | 'operational',
+        probability: created.probability || prob,
+        impact: created.impact || imp,
+        exposure: created.exposure || prob * imp,
+        mitigation_plan: created.mitigation_plan || '',
       };
       setRisks([...risks, risk]);
       setNewRisk({ description: '', type: 'operational', probability: 3, impact: 3, mitigation_plan: '' });
       setIsAddingRisk(false);
+    } catch (error) {
+      console.error('Error creating risk:', error);
+      alert('Erro ao adicionar risco. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleAddCompetitor = () => {
-    if (newCompetitor.name) {
-      const competitor: Competitor = {
-        id: Date.now().toString(),
-        name: newCompetitor.name || '',
+  const handleDeleteRisk = async (id: string) => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      await kamPlanAPI.deleteRisk(accountId, Number(id));
+      setRisks(risks.filter(r => r.id !== id));
+    } catch (error) {
+      console.error('Error deleting risk:', error);
+      alert('Erro ao remover risco. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddCompetitor = async () => {
+    if (!newCompetitor.name || !accountId) return;
+    setSaving(true);
+    try {
+      const created = await kamPlanAPI.createCompetitor(accountId, {
+        name: newCompetitor.name,
         area: newCompetitor.area || '',
         perceived_strength: newCompetitor.perceived_strength || 3,
         strong_points: newCompetitor.strong_points || '',
         weak_points: newCompetitor.weak_points || '',
+      });
+      const competitor: Competitor = {
+        id: String(created.id),
+        name: created.name || '',
+        area: created.area || '',
+        perceived_strength: created.perceived_strength || 3,
+        strong_points: created.strong_points || '',
+        weak_points: created.weak_points || '',
       };
       setCompetitors([...competitors, competitor]);
       setNewCompetitor({ name: '', area: '', perceived_strength: 3, strong_points: '', weak_points: '' });
       setIsAddingCompetitor(false);
+    } catch (error) {
+      console.error('Error creating competitor:', error);
+      alert('Erro ao adicionar concorrente. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
+
+  const handleDeleteCompetitor = async (id: string) => {
+    if (!accountId) return;
+    setSaving(true);
+    try {
+      await kamPlanAPI.deleteCompetitor(accountId, Number(id));
+      setCompetitors(competitors.filter(c => c.id !== id));
+    } catch (error) {
+      console.error('Error deleting competitor:', error);
+      alert('Erro ao remover concorrente. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Carregando riscos e concorrentes...</div>
+      </div>
+    );
+  }
 
   const getExposureColor = (exposure: number) => {
     if (exposure >= 16) return 'bg-red-500 text-white';
