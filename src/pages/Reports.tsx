@@ -484,7 +484,7 @@ export const Reports: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatCurrency(totalPipelineValue / totalOpportunities)}
+                  {totalOpportunities > 0 ? formatCurrency(totalPipelineValue / totalOpportunities) : 'R$ 0,00'}
                 </div>
               </CardContent>
             </Card>
