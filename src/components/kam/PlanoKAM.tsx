@@ -235,7 +235,6 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [_saving, setSaving] = useState(false);
-  const [pillarsFromDB, setPillarsFromDB] = useState(false);
 
   useEffect(() => {
     loadPillars();
