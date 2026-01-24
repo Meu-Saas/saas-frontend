@@ -647,12 +647,23 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  createStakeholder: async (accountId: string, data: { contact_id?: number; contact_name?: string; name?: string; role?: string; area?: string; power_level: number; support_level: number | string; relationship_level: number | string; objective?: string; engagement_strategy?: string; show_in_orgchart?: boolean }) => {
+  createStakeholder: async (accountId: string, data: { contact_id?: number; contact_name?: string; name?: string; role?: string; area?: string; power_level: number; support_level: number | string; relationship_level: number | string; objective?: string; engagement_strategy?: string; show_in_orgchart?: boolean; superior_id?: number }) => {
+    // Convert numeric support_level to enum string
+    const supportLevelMap: Record<number, string> = { 0: 'opponent', 1: 'neutral', 2: 'supporter' };
+    const relationshipLevelMap: Record<number, string> = { 0: 'cold', 1: 'neutral', 2: 'good', 3: 'sponsor' };
+    
     const payload = {
-      ...data,
-      name: data.name || data.contact_name,
-      support_level: typeof data.support_level === 'string' ? (['opponent', 'neutral', 'supporter'].indexOf(data.support_level) >= 0 ? ['opponent', 'neutral', 'supporter'].indexOf(data.support_level) : 1) : data.support_level,
-      relationship_level: typeof data.relationship_level === 'string' ? (['cold', 'neutral', 'good', 'sponsor'].indexOf(data.relationship_level) >= 0 ? ['cold', 'neutral', 'good', 'sponsor'].indexOf(data.relationship_level) : 1) : data.relationship_level,
+      contact_id: data.contact_id,
+      contact_name: data.contact_name || data.name || '',
+      role: data.role,
+      area: data.area,
+      power_level: data.power_level,
+      support_level: typeof data.support_level === 'number' ? (supportLevelMap[data.support_level] || 'neutral') : data.support_level,
+      relationship_level: typeof data.relationship_level === 'number' ? (relationshipLevelMap[data.relationship_level] || 'neutral') : data.relationship_level,
+      objective: data.objective,
+      engagement_strategy: data.engagement_strategy,
+      show_in_orgchart: data.show_in_orgchart ?? true,
+      superior_id: data.superior_id,
     };
     const response = await api.post(`/api/v1/kam-plan/${accountId}/stakeholders`, payload);
     return response.data;
@@ -672,11 +683,12 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  createWalletShareItem: async (accountId: string, data: { business_line: string; our_revenue?: number; current_revenue?: number; total_potential?: number; annual_potential?: number }) => {
+  createWalletShareItem: async (accountId: string, data: { business_line: string; our_revenue?: number; current_revenue?: number; total_potential?: number; annual_potential?: number; priority?: string }) => {
     const payload = {
       business_line: data.business_line,
-      our_revenue: data.our_revenue || data.current_revenue || 0,
-      total_potential: data.total_potential || data.annual_potential || 0,
+      current_revenue: data.current_revenue || data.our_revenue || 0,
+      annual_potential: data.annual_potential || data.total_potential || 0,
+      priority: data.priority || 'medium',
     };
     const response = await api.post(`/api/v1/kam-plan/${accountId}/wallet-share`, payload);
     return response.data;
@@ -696,13 +708,16 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  createAction: async (accountId: string, data: { title?: string; action?: string; strategic_objective?: string; action_type?: string; description?: string; responsible?: string; due_date?: string; planned_start_date?: string; planned_end_date?: string; status?: string }) => {
+  createAction: async (accountId: string, data: { title?: string; action?: string; strategic_objective?: string; action_type?: string; description?: string; responsible?: string; due_date?: string; planned_start_date?: string; planned_end_date?: string; status?: string; main_stakeholder_id?: number }) => {
     const payload = {
-      title: data.title || data.action || '',
-      description: data.description || data.strategic_objective || '',
+      strategic_objective: data.strategic_objective || data.description || data.title || '',
+      action: data.action || data.title || '',
+      action_type: data.action_type,
+      main_stakeholder_id: data.main_stakeholder_id,
       responsible: data.responsible,
-      due_date: data.due_date || data.planned_end_date,
-      status: data.status,
+      planned_start_date: data.planned_start_date,
+      planned_end_date: data.planned_end_date || data.due_date,
+      status: data.status || 'planned',
     };
     const response = await api.post(`/api/v1/kam-plan/${accountId}/actions`, payload);
     return response.data;
@@ -726,9 +741,9 @@ export const kamPlanAPI = {
     const payload = {
       description: data.description,
       type: data.type,
-      probability: String(data.probability),
-      impact: String(data.impact),
-      mitigation: data.mitigation || data.mitigation_plan,
+      probability: typeof data.probability === 'string' ? parseInt(data.probability, 10) || 1 : data.probability,
+      impact: typeof data.impact === 'string' ? parseInt(data.impact, 10) || 1 : data.impact,
+      mitigation_plan: data.mitigation_plan || data.mitigation,
     };
     const response = await api.post(`/api/v1/kam-plan/${accountId}/risks`, payload);
     return response.data;
@@ -751,9 +766,10 @@ export const kamPlanAPI = {
   createCompetitor: async (accountId: string, data: { name: string; area?: string; strengths?: string; weaknesses?: string; market_share?: number; perceived_strength?: string | number; perceived_weakness?: string; strong_points?: string; weak_points?: string }) => {
     const payload = {
       name: data.name,
-      strengths: data.strengths || data.strong_points,
-      weaknesses: data.weaknesses || data.weak_points,
-      market_share: data.market_share,
+      area: data.area,
+      perceived_strength: typeof data.perceived_strength === 'string' ? parseInt(data.perceived_strength, 10) || 1 : (data.perceived_strength || 1),
+      strong_points: data.strong_points || data.strengths,
+      weak_points: data.weak_points || data.weaknesses,
     };
     const response = await api.post(`/api/v1/kam-plan/${accountId}/competitors`, payload);
     return response.data;
