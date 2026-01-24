@@ -43,7 +43,7 @@ import {
   Sparkles,
   Loader2,
 } from 'lucide-react';
-import { valueMatrixAPI, contactsAPI } from '../../services/api';
+import { valueMatrixAPI, contactsAPI, kamPlanAPI } from '../../services/api';
 
 interface ValueAttribute {
   id: number;
@@ -99,10 +99,12 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId }) => {
   const [isStakeholderPanelOpen, setIsStakeholderPanelOpen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(100);
   const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [generatingAction, setGeneratingAction] = useState(false);
+    const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  const [newAttribute, setNewAttribute] = useState({
+    const [newAttribute, setNewAttribute] = useState({
     name: '',
     importance: 3,
     performance: 3,
@@ -189,21 +191,71 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId }) => {
     }
   };
 
-  const handleDeleteAttribute = async (id: number) => {
-    if (!accountId) return;
-    setSaving(true);
-    try {
-      await valueMatrixAPI.deleteAttribute(accountId, id);
-      setAttributes(attributes.filter(a => a.id !== id));
-    } catch (error) {
-      console.error('Error deleting attribute:', error);
-      alert('Erro ao excluir atributo. Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
-  };
+    const handleDeleteAttribute = async (id: number) => {
+      if (!accountId) return;
+      setSaving(true);
+      try {
+        await valueMatrixAPI.deleteAttribute(accountId, id);
+        setAttributes(attributes.filter(a => a.id !== id));
+      } catch (error) {
+        console.error('Error deleting attribute:', error);
+        alert('Erro ao excluir atributo. Tente novamente.');
+      } finally {
+        setSaving(false);
+      }
+    };
 
-  const handleStakeholderClick = (stakeholder: Stakeholder) => {
+    const generateKAMActionFromAttribute = async (attribute: ValueAttribute) => {
+      if (!accountId) return;
+      setGeneratingAction(true);
+      setActionSuccess(null);
+    
+      try {
+        const actionTypeMap: Record<string, string> = {
+          'Vulneravel': 'improvement',
+          'Competitivo': 'maintain',
+          'Imbativel': 'leverage',
+          'Irrelevante': 'monitor',
+        };
+      
+        const strategicObjectiveMap: Record<string, string> = {
+          'Vulneravel': `Melhorar desempenho em ${attribute.name} - Gap critico identificado`,
+          'Competitivo': `Manter posicao competitiva em ${attribute.name}`,
+          'Imbativel': `Alavancar vantagem em ${attribute.name} para expandir relacionamento`,
+          'Irrelevante': `Monitorar evolucao de ${attribute.name}`,
+        };
+      
+        const actionDescriptionMap: Record<string, string> = {
+          'Vulneravel': attribute.recommended_action || `Desenvolver plano de acao para melhorar ${attribute.name}. Importancia: ${attribute.importance}/5, Desempenho atual: ${attribute.performance}/5`,
+          'Competitivo': attribute.recommended_action || `Manter e fortalecer posicao em ${attribute.name}. Continuar monitorando concorrencia.`,
+          'Imbativel': attribute.recommended_action || `Usar ${attribute.name} como diferencial competitivo. Comunicar valor ao cliente.`,
+          'Irrelevante': attribute.recommended_action || `Acompanhar se ${attribute.name} ganha relevancia para o cliente.`,
+        };
+      
+        const today = new Date();
+        const dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + (attribute.zone === 'Vulneravel' ? 14 : 30));
+      
+        await kamPlanAPI.createAction(accountId, {
+          strategic_objective: strategicObjectiveMap[attribute.zone] || `Acao para ${attribute.name}`,
+          action: actionDescriptionMap[attribute.zone] || attribute.recommended_action || `Acao gerada a partir da Matriz de Valor - ${attribute.name}`,
+          action_type: actionTypeMap[attribute.zone] || 'improvement',
+          status: 'planned',
+          planned_start_date: today.toISOString().split('T')[0],
+          planned_end_date: dueDate.toISOString().split('T')[0],
+        });
+      
+        setActionSuccess(`Acao KAM criada com sucesso para "${attribute.name}"! Acesse o Plano de Acao para visualizar.`);
+        setTimeout(() => setActionSuccess(null), 5000);
+      } catch (error) {
+        console.error('Error generating KAM action:', error);
+        alert('Erro ao gerar acao KAM. Tente novamente.');
+      } finally {
+        setGeneratingAction(false);
+      }
+    };
+
+    const handleStakeholderClick= (stakeholder: Stakeholder) => {
     setSelectedStakeholder(stakeholder);
     setIsStakeholderPanelOpen(true);
   };
@@ -550,10 +602,27 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId }) => {
                     <strong>Acao Recomendada:</strong>
                   </p>
                   <p>{selectedAttribute.recommended_action || 'Nenhuma acao definida'}</p>
-                  <Button size="sm" className="mt-3">
-                    <Plus className="h-3 w-3 mr-1" />
-                    Gerar Acao KAM
-                  </Button>
+                                    <Button 
+                                      size="sm" 
+                                      className="mt-3"
+                                      onClick={() => generateKAMActionFromAttribute(selectedAttribute)}
+                                      disabled={generatingAction}
+                                    >
+                                      {generatingAction ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                          Gerando...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Gerar Acao KAM
+                                        </>
+                                      )}
+                                    </Button>
+                                    {actionSuccess && (
+                                      <p className="text-sm text-green-600 mt-2">{actionSuccess}</p>
+                                    )}
                 </CardContent>
               </Card>
             )}

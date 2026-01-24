@@ -3,6 +3,7 @@ import { contactsAPI } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { MaskedInput } from '../components/ui/masked-input';
 import {
   Table,
   TableBody,
@@ -146,11 +147,12 @@ export const Contacts: React.FC = () => {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="phone">Telefone</Label>
-                <Input 
-                  id="phone" 
-                  placeholder="(00) 00000-0000" 
+                <MaskedInput
+                  id="phone"
+                  maskType="phone"
+                  placeholder="(00) 00000-0000"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(maskedValue) => setFormData({ ...formData, phone: maskedValue })}
                 />
               </div>
               <div className="grid gap-2">
