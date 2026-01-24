@@ -647,22 +647,22 @@ export const kamPlanAPI = {
   },
 
   getPains: async (accountId: string) => {
-    const response = await api.get(`/api/v1/kam-plan/${accountId}/pains`);
+    const response = await api.get(`/api/v1/kam-plan/${accountId}/diagnostic/pains`);
     return response.data;
   },
 
   createPain: async (accountId: string, data: { description: string; impact: string; priority: string }) => {
-    const response = await api.post(`/api/v1/kam-plan/${accountId}/pains`, data);
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/diagnostic/pains`, data);
     return response.data;
   },
 
   updatePain: async (accountId: string, painId: number, data: { description?: string; impact?: string; priority?: string }) => {
-    const response = await api.put(`/api/v1/kam-plan/${accountId}/pains/${painId}`, data);
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/diagnostic/pains/${painId}`, data);
     return response.data;
   },
 
   deletePain: async (accountId: string, painId: number) => {
-    await api.delete(`/api/v1/kam-plan/${accountId}/pains/${painId}`);
+    await api.delete(`/api/v1/kam-plan/${accountId}/diagnostic/pains/${painId}`);
   },
 
   getStakeholders: async (accountId: string) => {
