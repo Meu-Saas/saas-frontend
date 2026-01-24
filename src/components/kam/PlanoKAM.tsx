@@ -235,6 +235,7 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [_saving, setSaving] = useState(false);
+  const [pillarsFromDB, setPillarsFromDB] = useState(false);
 
   useEffect(() => {
     loadPillars();
@@ -256,9 +257,13 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
           current_level: (p.current_level || 'tactical') as 'tactical' | 'transition' | 'strategic',
           kam_analysis: p.kam_analysis || '',
         })));
+        setPillarsFromDB(true);
+      } else {
+        setPillarsFromDB(false);
       }
     } catch (error) {
       console.error('Error loading pillars:', error);
+      setPillarsFromDB(false);
     } finally {
       setLoading(false);
     }
@@ -299,11 +304,34 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
     if (!selectedPillar || !accountId) return;
     setSaving(true);
     try {
-      await kamPlanAPI.updatePillar(accountId, Number(selectedPillar.id), {
-        current_level: selectedPillar.current_level,
-        kam_analysis: selectedPillar.kam_analysis,
-        maturity_items: selectedPillar.maturity_items,
-      });
+      let savedPillar;
+      if (pillarsFromDB) {
+        // Update existing pillar
+        savedPillar = await kamPlanAPI.updatePillar(accountId, Number(selectedPillar.id), {
+          current_level: selectedPillar.current_level,
+          kam_analysis: selectedPillar.kam_analysis,
+          maturity_items: selectedPillar.maturity_items,
+        });
+      } else {
+        // Create new pillar (first time saving)
+        savedPillar = await kamPlanAPI.createPillar(accountId, {
+          name: selectedPillar.name,
+          description: selectedPillar.description,
+          tactical_description: selectedPillar.tactical_description,
+          strategic_description: selectedPillar.strategic_description,
+          current_level: selectedPillar.current_level,
+          kam_analysis: selectedPillar.kam_analysis,
+          maturity_items: selectedPillar.maturity_items,
+        });
+        // Update the pillar ID with the one from the database
+        if (savedPillar && savedPillar.id) {
+          const updatedPillar = { ...selectedPillar, id: String(savedPillar.id) };
+          setPillars(pillars.map(p => p.name === selectedPillar.name ? updatedPillar : p));
+          setPillarsFromDB(true);
+          setIsDialogOpen(false);
+          return;
+        }
+      }
       setPillars(pillars.map(p => p.id === selectedPillar.id ? selectedPillar : p));
       setIsDialogOpen(false);
     } catch (error) {

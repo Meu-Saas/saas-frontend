@@ -604,10 +604,33 @@ export const kamPlanAPI = {
     return response.data;
   },
 
+  createPillar: async (accountId: string, data: { name: string; description?: string; tactical_description?: string; strategic_description?: string; current_level?: string; kam_analysis?: string; maturity_items?: { description: string; is_checked: boolean; score: number }[] }) => {
+    const payload = {
+      name: data.name,
+      description: data.description,
+      tactical_description: data.tactical_description,
+      strategic_description: data.strategic_description,
+      current_level: data.current_level || 'tactical',
+      kam_analysis: data.kam_analysis,
+      maturity_items: data.maturity_items?.map(item => ({
+        description: item.description,
+        is_checked: item.is_checked,
+        score: item.score,
+      })),
+    };
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/pillars`, payload);
+    return response.data;
+  },
+
   updatePillar: async (accountId: string, pillarId: number, data: { maturity_level?: number; notes?: string; current_level?: string; kam_analysis?: string; maturity_items?: { id: string; description: string; is_checked: boolean; score: number }[] }) => {
     const payload = {
-      maturity_level: data.maturity_level,
-      notes: data.notes || data.kam_analysis,
+      current_level: data.current_level,
+      kam_analysis: data.kam_analysis || data.notes,
+      maturity_items: data.maturity_items?.map(item => ({
+        description: item.description,
+        is_checked: item.is_checked,
+        score: item.score,
+      })),
     };
     const response = await api.put(`/api/v1/kam-plan/${accountId}/pillars/${pillarId}`, payload);
     return response.data;
