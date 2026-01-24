@@ -268,13 +268,9 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
         });
         
         setPillars(mergedPillars);
-        setPillarsFromDB(true);
-      } else {
-        setPillarsFromDB(false);
       }
     } catch (error) {
       console.error('Error loading pillars:', error);
-      setPillarsFromDB(false);
     } finally {
       setLoading(false);
     }
