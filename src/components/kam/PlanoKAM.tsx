@@ -247,16 +247,28 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
     try {
       const data = await kamPlanAPI.getPillars(accountId);
       if (Array.isArray(data) && data.length > 0) {
-        setPillars(data.map((p: { id: number; name: string; description?: string; tactical_description?: string; strategic_description?: string; maturity_items?: { id: string; description: string; is_checked: boolean; score: number }[]; current_level?: string; kam_analysis?: string }) => ({
-          id: String(p.id),
-          name: p.name || '',
-          description: p.description || '',
-          tactical_description: p.tactical_description || '',
-          strategic_description: p.strategic_description || '',
-          maturity_items: p.maturity_items || [],
-          current_level: (p.current_level || 'tactical') as 'tactical' | 'transition' | 'strategic',
-          kam_analysis: p.kam_analysis || '',
-        })));
+        // Map database pillars by name for easy lookup
+        const dbPillarsMap = new Map<string, KAMPillar>();
+        data.forEach((p: { id: number; name: string; description?: string; tactical_description?: string; strategic_description?: string; maturity_items?: { id: string; description: string; is_checked: boolean; score: number }[]; current_level?: string; kam_analysis?: string }) => {
+          dbPillarsMap.set(p.name, {
+            id: String(p.id),
+            name: p.name || '',
+            description: p.description || '',
+            tactical_description: p.tactical_description || '',
+            strategic_description: p.strategic_description || '',
+            maturity_items: p.maturity_items || [],
+            current_level: (p.current_level || 'tactical') as 'tactical' | 'transition' | 'strategic',
+            kam_analysis: p.kam_analysis || '',
+          });
+        });
+        
+        // Merge: use DB pillar if exists, otherwise use default
+        const mergedPillars = defaultPillars.map(defaultPillar => {
+          const dbPillar = dbPillarsMap.get(defaultPillar.name);
+          return dbPillar || defaultPillar;
+        });
+        
+        setPillars(mergedPillars);
         setPillarsFromDB(true);
       } else {
         setPillarsFromDB(false);
@@ -305,15 +317,19 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
     setSaving(true);
     try {
       let savedPillar;
-      if (pillarsFromDB) {
-        // Update existing pillar
+      // Check if this pillar exists in DB (numeric ID) or is a default (string ID like '1', '2', etc.)
+      const isFromDB = !isNaN(Number(selectedPillar.id)) && Number(selectedPillar.id) > 6;
+      
+      if (isFromDB) {
+        // Update existing pillar in database
         savedPillar = await kamPlanAPI.updatePillar(accountId, Number(selectedPillar.id), {
           current_level: selectedPillar.current_level,
           kam_analysis: selectedPillar.kam_analysis,
           maturity_items: selectedPillar.maturity_items,
         });
+        setPillars(pillars.map(p => p.id === selectedPillar.id ? selectedPillar : p));
       } else {
-        // Create new pillar (first time saving)
+        // Create new pillar (first time saving this pillar)
         savedPillar = await kamPlanAPI.createPillar(accountId, {
           name: selectedPillar.name,
           description: selectedPillar.description,
@@ -327,12 +343,8 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
         if (savedPillar && savedPillar.id) {
           const updatedPillar = { ...selectedPillar, id: String(savedPillar.id) };
           setPillars(pillars.map(p => p.name === selectedPillar.name ? updatedPillar : p));
-          setPillarsFromDB(true);
-          setIsDialogOpen(false);
-          return;
         }
       }
-      setPillars(pillars.map(p => p.id === selectedPillar.id ? selectedPillar : p));
       setIsDialogOpen(false);
     } catch (error) {
       console.error('Error saving pillar:', error);
