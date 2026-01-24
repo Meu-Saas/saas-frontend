@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Switch } from '../components/ui/switch';
-import { Settings as SettingsIcon, Bell, Shield, Palette, Save, Loader2 } from 'lucide-react';
+import { Bell, Shield, Palette, Save, Loader2 } from 'lucide-react';
 
 export const Settings: React.FC = () => {
   const [emailNotifications, setEmailNotifications] = useState(true);

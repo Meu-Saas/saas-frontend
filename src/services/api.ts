@@ -604,8 +604,12 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  updatePillar: async (accountId: string, pillarId: number, data: { maturity_level?: number; notes?: string }) => {
-    const response = await api.put(`/api/v1/kam-plan/${accountId}/pillars/${pillarId}`, data);
+  updatePillar: async (accountId: string, pillarId: number, data: { maturity_level?: number; notes?: string; current_level?: string; kam_analysis?: string; maturity_items?: { id: string; description: string; is_checked: boolean; score: number }[] }) => {
+    const payload = {
+      maturity_level: data.maturity_level,
+      notes: data.notes || data.kam_analysis,
+    };
+    const response = await api.put(`/api/v1/kam-plan/${accountId}/pillars/${pillarId}`, payload);
     return response.data;
   },
 
@@ -643,8 +647,14 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  createStakeholder: async (accountId: string, data: { contact_id?: number; name: string; role?: string; power_level: number; support_level: number; relationship_level: number; engagement_strategy?: string }) => {
-    const response = await api.post(`/api/v1/kam-plan/${accountId}/stakeholders`, data);
+  createStakeholder: async (accountId: string, data: { contact_id?: number; contact_name?: string; name?: string; role?: string; area?: string; power_level: number; support_level: number | string; relationship_level: number | string; objective?: string; engagement_strategy?: string; show_in_orgchart?: boolean }) => {
+    const payload = {
+      ...data,
+      name: data.name || data.contact_name,
+      support_level: typeof data.support_level === 'string' ? (['opponent', 'neutral', 'supporter'].indexOf(data.support_level) >= 0 ? ['opponent', 'neutral', 'supporter'].indexOf(data.support_level) : 1) : data.support_level,
+      relationship_level: typeof data.relationship_level === 'string' ? (['cold', 'neutral', 'good', 'sponsor'].indexOf(data.relationship_level) >= 0 ? ['cold', 'neutral', 'good', 'sponsor'].indexOf(data.relationship_level) : 1) : data.relationship_level,
+    };
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/stakeholders`, payload);
     return response.data;
   },
 
@@ -662,8 +672,13 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  createWalletShareItem: async (accountId: string, data: { business_line: string; our_revenue: number; total_potential: number }) => {
-    const response = await api.post(`/api/v1/kam-plan/${accountId}/wallet-share`, data);
+  createWalletShareItem: async (accountId: string, data: { business_line: string; our_revenue?: number; current_revenue?: number; total_potential?: number; annual_potential?: number }) => {
+    const payload = {
+      business_line: data.business_line,
+      our_revenue: data.our_revenue || data.current_revenue || 0,
+      total_potential: data.total_potential || data.annual_potential || 0,
+    };
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/wallet-share`, payload);
     return response.data;
   },
 
@@ -681,8 +696,15 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  createAction: async (accountId: string, data: { title: string; description?: string; responsible?: string; due_date?: string; status?: string }) => {
-    const response = await api.post(`/api/v1/kam-plan/${accountId}/actions`, data);
+  createAction: async (accountId: string, data: { title?: string; action?: string; strategic_objective?: string; action_type?: string; description?: string; responsible?: string; due_date?: string; planned_start_date?: string; planned_end_date?: string; status?: string }) => {
+    const payload = {
+      title: data.title || data.action || '',
+      description: data.description || data.strategic_objective || '',
+      responsible: data.responsible,
+      due_date: data.due_date || data.planned_end_date,
+      status: data.status,
+    };
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/actions`, payload);
     return response.data;
   },
 
@@ -700,8 +722,15 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  createRisk: async (accountId: string, data: { description: string; type: string; probability: string; impact: string; mitigation?: string }) => {
-    const response = await api.post(`/api/v1/kam-plan/${accountId}/risks`, data);
+  createRisk: async (accountId: string, data: { description: string; type: string; probability: string | number; impact: string | number; mitigation?: string; mitigation_plan?: string }) => {
+    const payload = {
+      description: data.description,
+      type: data.type,
+      probability: String(data.probability),
+      impact: String(data.impact),
+      mitigation: data.mitigation || data.mitigation_plan,
+    };
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/risks`, payload);
     return response.data;
   },
 
@@ -719,8 +748,14 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  createCompetitor: async (accountId: string, data: { name: string; strengths?: string; weaknesses?: string; market_share?: number }) => {
-    const response = await api.post(`/api/v1/kam-plan/${accountId}/competitors`, data);
+  createCompetitor: async (accountId: string, data: { name: string; area?: string; strengths?: string; weaknesses?: string; market_share?: number; perceived_strength?: string | number; perceived_weakness?: string; strong_points?: string; weak_points?: string }) => {
+    const payload = {
+      name: data.name,
+      strengths: data.strengths || data.strong_points,
+      weaknesses: data.weaknesses || data.weak_points,
+      market_share: data.market_share,
+    };
+    const response = await api.post(`/api/v1/kam-plan/${accountId}/competitors`, payload);
     return response.data;
   },
 

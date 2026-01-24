@@ -18,7 +18,7 @@ export const Profile: React.FC = () => {
     setSaving(true);
     setMessage(null);
     try {
-      await adminAPI.updateUser(user.id, { full_name: fullName });
+      await adminAPI.updateUser(Number(user.id), { full_name: fullName });
       setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
     } catch (error) {
       console.error('Error updating profile:', error);

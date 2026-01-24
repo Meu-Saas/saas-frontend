@@ -234,7 +234,7 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [selectedPillar, setSelectedPillar] = useState<KAMPillar | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [_saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadPillars();
@@ -858,7 +858,7 @@ export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId })
     show_in_orgchart: true,
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [_saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadStakeholders();
@@ -882,7 +882,7 @@ export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId })
           objective: s.objective || '',
           engagement_strategy: s.engagement_strategy || '',
           show_in_orgchart: s.show_in_orgchart ?? true,
-          superior_id: s.superior_id || null,
+          superior_id: s.superior_id ? String(s.superior_id) : null,
         })));
       }
     } catch (error) {
@@ -937,20 +937,6 @@ export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId })
     } catch (error) {
       console.error('Error creating stakeholder:', error);
       alert('Erro ao adicionar stakeholder. Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteStakeholder = async (id: string) => {
-    if (!accountId) return;
-    setSaving(true);
-    try {
-      await kamPlanAPI.deleteStakeholder(accountId, Number(id));
-      setStakeholders(stakeholders.filter(s => s.id !== id));
-    } catch (error) {
-      console.error('Error deleting stakeholder:', error);
-      alert('Erro ao remover stakeholder. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -1177,7 +1163,7 @@ export const WalletShare: React.FC<{ accountId: string }> = ({ accountId }) => {
     priority: 'medium',
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [_saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadWalletShare();
@@ -1216,7 +1202,6 @@ export const WalletShare: React.FC<{ accountId: string }> = ({ accountId }) => {
         business_line: newLine.business_line,
         annual_potential: potential,
         current_revenue: current,
-        priority: newLine.priority || 'medium',
       });
       const line: WalletShareLine = {
         id: String(created.id),
@@ -1238,21 +1223,7 @@ export const WalletShare: React.FC<{ accountId: string }> = ({ accountId }) => {
     }
   };
 
-  const handleDeleteLine = async (id: string) => {
-    if (!accountId) return;
-    setSaving(true);
-    try {
-      await kamPlanAPI.deleteWalletShareItem(accountId, Number(id));
-      setLines(lines.filter(l => l.id !== id));
-    } catch (error) {
-      console.error('Error deleting wallet share item:', error);
-      alert('Erro ao remover linha. Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const formatCurrency = (value: number) => {
+  const formatCurrency= (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
@@ -1439,7 +1410,7 @@ export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId }) => 
     result: '',
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [_saving, setSaving] = useState(false);
 
   const actionTypes = [
     { value: 'meeting', label: 'Reuniao C-level' },
@@ -1466,7 +1437,7 @@ export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId }) => 
           strategic_objective: a.strategic_objective || '',
           action: a.action || '',
           action_type: a.action_type || 'meeting',
-          main_stakeholder_id: a.main_stakeholder_id || null,
+          main_stakeholder_id: a.main_stakeholder_id ? String(a.main_stakeholder_id) : null,
           main_stakeholder_name: a.main_stakeholder_name || null,
           responsible: a.responsible || '',
           planned_start_date: a.planned_start_date || '',
@@ -1528,20 +1499,6 @@ export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId }) => 
     }
   };
 
-  const handleDeleteAction = async (id: string) => {
-    if (!accountId) return;
-    setSaving(true);
-    try {
-      await kamPlanAPI.deleteAction(accountId, Number(id));
-      setActions(actions.filter(a => a.id !== id));
-    } catch (error) {
-      console.error('Error deleting action:', error);
-      alert('Erro ao remover acao. Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1550,7 +1507,7 @@ export const PlanoAcaoKAM: React.FC<{ accountId: string }> = ({ accountId }) => 
     );
   }
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon= (status: string) => {
     switch (status) {
       case 'completed': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
       case 'in_progress': return <Clock className="h-4 w-4 text-blue-500" />;
@@ -1738,7 +1695,7 @@ export const RiscosConcorrencia: React.FC<{ accountId: string }> = ({ accountId 
     weak_points: '',
   });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [_saving, setSaving] = useState(false);
 
   const riskTypes = [
     { value: 'financial', label: 'Financeiro' },
@@ -1822,21 +1779,7 @@ export const RiscosConcorrencia: React.FC<{ accountId: string }> = ({ accountId 
     }
   };
 
-  const handleDeleteRisk = async (id: string) => {
-    if (!accountId) return;
-    setSaving(true);
-    try {
-      await kamPlanAPI.deleteRisk(accountId, Number(id));
-      setRisks(risks.filter(r => r.id !== id));
-    } catch (error) {
-      console.error('Error deleting risk:', error);
-      alert('Erro ao remover risco. Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleAddCompetitor = async () => {
+  const handleAddCompetitor= async () => {
     if (!newCompetitor.name || !accountId) return;
     setSaving(true);
     try {
@@ -1866,20 +1809,6 @@ export const RiscosConcorrencia: React.FC<{ accountId: string }> = ({ accountId 
     }
   };
 
-  const handleDeleteCompetitor = async (id: string) => {
-    if (!accountId) return;
-    setSaving(true);
-    try {
-      await kamPlanAPI.deleteCompetitor(accountId, Number(id));
-      setCompetitors(competitors.filter(c => c.id !== id));
-    } catch (error) {
-      console.error('Error deleting competitor:', error);
-      alert('Erro ao remover concorrente. Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1888,7 +1817,7 @@ export const RiscosConcorrencia: React.FC<{ accountId: string }> = ({ accountId 
     );
   }
 
-  const getExposureColor = (exposure: number) => {
+  const getExposureColor= (exposure: number) => {
     if (exposure >= 16) return 'bg-red-500 text-white';
     if (exposure >= 9) return 'bg-orange-500 text-white';
     if (exposure >= 4) return 'bg-yellow-500';
