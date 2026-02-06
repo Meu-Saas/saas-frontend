@@ -23,6 +23,7 @@ import {
 } from '../components/ui/dialog';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Plus, Search, Mail, Phone, Building2 } from 'lucide-react';
 
 interface Contact {
@@ -147,13 +148,32 @@ export const Contacts: React.FC = () => {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="phone">Telefone</Label>
-                <MaskedInput
-                  id="phone"
-                  maskType="phone"
-                  placeholder="(00) 00000-0000"
-                  value={formData.phone}
-                  onChange={(maskedValue) => setFormData({ ...formData, phone: maskedValue })}
-                />
+                <div className="flex gap-2">
+                  <Select defaultValue="+55" onValueChange={(val) => {
+                    if (val !== '+55') {
+                      setFormData({ ...formData, phone: val + ' ' });
+                    }
+                  }}>
+                    <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="+55">+55</SelectItem>
+                      <SelectItem value="+1">+1</SelectItem>
+                      <SelectItem value="+351">+351</SelectItem>
+                      <SelectItem value="+54">+54</SelectItem>
+                      <SelectItem value="+56">+56</SelectItem>
+                      <SelectItem value="+52">+52</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex-1">
+                    <MaskedInput
+                      id="phone"
+                      maskType="phone"
+                      placeholder="(00) 00000-0000"
+                      value={formData.phone}
+                      onChange={(maskedValue) => setFormData({ ...formData, phone: maskedValue })}
+                    />
+                  </div>
+                </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="role">Cargo</Label>

@@ -72,6 +72,7 @@ interface AccountHealth {
 
 interface ValueStakeholderReport {
   account_name: string;
+  account_id?: number;
   stakeholder_count: number;
   supporter_percentage: number;
   imbativel_count: number;
@@ -80,6 +81,7 @@ interface ValueStakeholderReport {
 
 interface KamPlanExecution {
   account_name: string;
+  account_id?: number;
   total_actions: number;
   completed_actions: number;
   completion_rate: number;
@@ -181,6 +183,7 @@ export const Reports: React.FC = () => {
       if (Array.isArray(valueResult)) {
         setValueStakeholderData(valueResult.map((v: ValueStakeholderReport & { account_id?: number }) => ({
           account_name: v.account_name || `Conta ${v.account_id}`,
+          account_id: v.account_id,
           stakeholder_count: v.stakeholder_count || 0,
           supporter_percentage: v.supporter_percentage || 0,
           imbativel_count: v.imbativel_count || 0,
@@ -191,6 +194,7 @@ export const Reports: React.FC = () => {
       if (Array.isArray(kamPlanResult)) {
         setKamPlanData(kamPlanResult.map((k: KamPlanExecution & { account_id?: number }) => ({
           account_name: k.account_name || `Conta ${k.account_id}`,
+          account_id: k.account_id,
           total_actions: k.total_actions || 0,
           completed_actions: k.completed_actions || 0,
           completion_rate: k.completion_rate || 0,
@@ -315,12 +319,16 @@ export const Reports: React.FC = () => {
       alert('Visao salva com sucesso!');
     };
 
-    const handleViewPlan = (accountName: string) => {
-      navigate(`/accounts?search=${encodeURIComponent(accountName)}`);
+    const handleViewPlan = (accountId?: number) => {
+      if (accountId) {
+        navigate(`/accounts/${accountId}?tab=plano-kam`);
+      }
     };
 
-    const handleViewOrganogram = (accountName: string) => {
-      navigate(`/accounts?search=${encodeURIComponent(accountName)}`);
+    const handleViewOrganogram = (accountId?: number) => {
+      if (accountId) {
+        navigate(`/accounts/${accountId}?tab=matriz-valor`);
+      }
     };
 
   const totalPipelineValue = pipelineData.reduce((sum, stage) => sum + stage.value, 0);
@@ -759,7 +767,7 @@ export const Reports: React.FC = () => {
                         {data.vulneravel_count}
                       </TableCell>
                       <TableCell className="text-center">
-                                                <Button variant="ghost" size="sm" onClick={() => handleViewOrganogram(data.account_name)}>
+                                                <Button variant="ghost" size="sm" onClick={() => handleViewOrganogram(data.account_id)}>
                                                   Ver Organograma
                                                 </Button>
                       </TableCell>
@@ -816,7 +824,7 @@ export const Reports: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-center">{data.strategic_pillars}/6</TableCell>
                       <TableCell className="text-center">
-                                                <Button variant="ghost" size="sm" onClick={() => handleViewPlan(data.account_name)}>
+                                                <Button variant="ghost" size="sm" onClick={() => handleViewPlan(data.account_id)}>
                                                   Ver Plano
                                                 </Button>
                       </TableCell>

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { MaskedInput } from '../components/ui/masked-input';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
@@ -40,7 +41,6 @@ import {
   FileText,
   Edit,
   Save,
-  X,
   Plus,
   DollarSign,
 } from 'lucide-react';
@@ -53,7 +53,8 @@ import {
   RiscosConcorrencia,
   MatrizValor,
 } from '../components/kam';
-import { accountsAPI, contactsAPI, opportunitiesAPI, activitiesAPI } from '../services/api';
+import { accountsAPI, contactsAPI, opportunitiesAPI, activitiesAPI, kamPlanAPI } from '../services/api';
+import { validateEmail } from '../utils/masks';
 
 interface Account {
   id: string;
@@ -105,14 +106,14 @@ interface Activity {
 export const AccountDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [account, setAccount] = useState<Account | null>(null);
   const [editedAccount, setEditedAccount] = useState<Account | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('resumo');
+  const [activeTab, setActiveTab]= useState(searchParams.get('tab') || 'resumo');
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
   const [isOpportunityDialogOpen, setIsOpportunityDialogOpen] = useState(false);
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
@@ -120,6 +121,8 @@ export const AccountDetail: React.FC = () => {
   const [opportunityForm, setOpportunityForm] = useState({ title: '', value: '', expected_close_date: '' });
   const [activityForm, setActivityForm] = useState({ title: '', type: 'meeting', scheduled_at: '', description: '' });
   const [saving, setSaving] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [contactEmailError, setContactEmailError] = useState('');
 
   useEffect(() => {
     loadAccountData();
@@ -131,13 +134,14 @@ export const AccountDetail: React.FC = () => {
       return;
     }
     try {
-      const [accountData, contactsData, opportunitiesData, activitiesData] = await Promise.all([
+      const [accountData, contactsData, opportunitiesData, activitiesData, stakeholdersData] = await Promise.all([
         accountsAPI.getById(id),
         contactsAPI.getByAccount(id).catch(() => []),
         opportunitiesAPI.getByAccount(id).catch(() => []),
         activitiesAPI.getAll().then(activities => 
           activities.filter((a: { account_id?: number }) => a.account_id === Number(id))
         ).catch(() => []),
+        kamPlanAPI.getStakeholders(id).catch(() => []),
       ]);
 
       if (accountData) {
@@ -165,6 +169,9 @@ export const AccountDetail: React.FC = () => {
       }
 
       if (contactsData && Array.isArray(contactsData)) {
+        const stakeholderNames = Array.isArray(stakeholdersData)
+          ? stakeholdersData.map((s: { contact_name?: string }) => (s.contact_name || '').toLowerCase())
+          : [];
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setContacts((contactsData as any[]).map((c) => ({
           id: String(c.id),
@@ -172,7 +179,7 @@ export const AccountDetail: React.FC = () => {
           email: c.email || null,
           phone: c.phone || null,
           role: c.role || null,
-          is_key_stakeholder: c.is_key_stakeholder || false,
+          is_key_stakeholder: c.is_key_stakeholder || stakeholderNames.includes((c.name || '').toLowerCase()),
         })));
       }
 
@@ -210,12 +217,12 @@ export const AccountDetail: React.FC = () => {
 
   const handleStartEditing = () => {
     setEditedAccount(account ? { ...account } : null);
-    setIsEditing(true);
+    setIsEditDialogOpen(true);
   };
 
   const handleCancelEditing = () => {
     setEditedAccount(null);
-    setIsEditing(false);
+    setIsEditDialogOpen(false);
   };
 
   const handleSaveAccount = async () => {
@@ -239,7 +246,7 @@ export const AccountDetail: React.FC = () => {
       });
       // Reload account data to get fresh data from backend
       await loadAccountData();
-      setIsEditing(false);
+      setIsEditDialogOpen(false);
       setEditedAccount(null);
     } catch (error) {
       console.error('Error saving account:', error);
@@ -357,23 +364,10 @@ export const AccountDetail: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isEditing ? (
-            <>
-              <Button variant="outline" onClick={handleCancelEditing} disabled={saving}>
-                <X className="mr-2 h-4 w-4" />
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveAccount} disabled={saving}>
-                <Save className="mr-2 h-4 w-4" />
-                {saving ? 'Salvando...' : 'Salvar'}
-              </Button>
-            </>
-          ) : (
-            <Button onClick={handleStartEditing}>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar
-            </Button>
-          )}
+          <Button onClick={handleStartEditing}>
+            <Edit className="mr-2 h-4 w-4" />
+            Editar
+          </Button>
         </div>
       </div>
 
@@ -399,52 +393,28 @@ export const AccountDetail: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
                   <Label>Nome da Conta</Label>
-                  <Input 
-                    value={isEditing ? (editedAccount?.name || '') : account.name} 
-                    disabled={!isEditing}
-                    onChange={(e) => updateEditedAccount('name', e.target.value)}
-                  />
+                  <Input value={account.name} disabled />
                 </div>
                 <div className="grid gap-2">
                   <Label>CNPJ</Label>
-                  <Input 
-                    value={isEditing ? (editedAccount?.cnpj || '') : (account.cnpj || '')} 
-                    disabled={!isEditing}
-                    onChange={(e) => updateEditedAccount('cnpj', e.target.value)}
-                  />
+                  <Input value={account.cnpj || ''} disabled />
                 </div>
                 <div className="grid gap-2">
                   <Label>Website</Label>
-                  <Input 
-                    value={isEditing ? (editedAccount?.website || '') : (account.website || '')} 
-                    disabled={!isEditing}
-                    onChange={(e) => updateEditedAccount('website', e.target.value)}
-                  />
+                  <Input value={account.website || ''} disabled />
                 </div>
                 <div className="grid gap-2">
                   <Label>Segmento</Label>
-                  <Input 
-                    value={isEditing ? (editedAccount?.segment || '') : (account.segment || '')} 
-                    disabled={!isEditing}
-                    onChange={(e) => updateEditedAccount('segment', e.target.value)}
-                  />
+                  <Input value={account.segment || ''} disabled />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label>Cidade</Label>
-                    <Input 
-                      value={isEditing ? (editedAccount?.city || '') : (account.city || '')} 
-                      disabled={!isEditing}
-                      onChange={(e) => updateEditedAccount('city', e.target.value)}
-                    />
+                    <Input value={account.city || ''} disabled />
                   </div>
                   <div className="grid gap-2">
                     <Label>Estado</Label>
-                    <Input 
-                      value={isEditing ? (editedAccount?.state || '') : (account.state || '')} 
-                      disabled={!isEditing}
-                      onChange={(e) => updateEditedAccount('state', e.target.value)}
-                    />
+                    <Input value={account.state || ''} disabled />
                   </div>
                 </div>
               </CardContent>
@@ -460,73 +430,27 @@ export const AccountDetail: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="grid gap-2">
                   <Label>Faturamento Estimado</Label>
-                  <Input
-                    type="number"
-                    value={isEditing ? (editedAccount?.estimated_revenue?.toString() || '') : (account.estimated_revenue?.toString() || '')}
-                    disabled={!isEditing}
-                    onChange={(e) => updateEditedAccount('estimated_revenue', e.target.value ? Number(e.target.value) : null)}
-                    placeholder="0"
-                  />
+                  <Input value={account.estimated_revenue ? formatCurrency(account.estimated_revenue) : ''} disabled />
                 </div>
                 <div className="grid gap-2">
                   <Label>Numero de Colaboradores</Label>
-                  <Input
-                    type="number"
-                    value={isEditing ? (editedAccount?.employee_count?.toString() || '') : (account.employee_count?.toString() || '')}
-                    disabled={!isEditing}
-                    onChange={(e) => updateEditedAccount('employee_count', e.target.value ? Number(e.target.value) : null)}
-                  />
+                  <Input value={account.employee_count?.toString() || ''} disabled />
                 </div>
                 <div className="grid gap-2">
                   <Label>Status</Label>
-                  <Select 
-                    disabled={!isEditing} 
-                    value={isEditing ? (editedAccount?.status || 'active') : account.status}
-                    onValueChange={(value) => updateEditedAccount('status', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="active">Ativa</SelectItem>
-                      <SelectItem value="at_risk">Em Risco</SelectItem>
-                      <SelectItem value="churned">Perdida</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input value={account.status === 'active' ? 'Ativa' : account.status === 'at_risk' ? 'Em Risco' : account.status === 'churned' ? 'Perdida' : account.status} disabled />
                 </div>
                 <div className="grid gap-2">
                   <Label>Categoria</Label>
-                  <Select 
-                    disabled={!isEditing} 
-                    value={isEditing ? (editedAccount?.category_id || '') : (account.category_id || '')}
-                    onValueChange={(value) => updateEditedAccount('category_id', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">A</SelectItem>
-                      <SelectItem value="2">B</SelectItem>
-                      <SelectItem value="3">C</SelectItem>
-                      <SelectItem value="4">Estrategica</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input value={account.category_name || 'Sem categoria'} disabled />
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Conta Estrategica KAM</Label>
-                  <Switch 
-                    checked={isEditing ? (editedAccount?.is_strategic || false) : account.is_strategic} 
-                    disabled={!isEditing}
-                    onCheckedChange={(checked) => updateEditedAccount('is_strategic', checked)}
-                  />
+                  <Switch checked={account.is_strategic} disabled />
                 </div>
                 <div className="grid gap-2">
                   <Label>KAM Responsavel</Label>
-                  <Input 
-                    value={isEditing ? (editedAccount?.kam_user_name || '') : (account.kam_user_name || '')} 
-                    disabled={!isEditing}
-                    onChange={(e) => updateEditedAccount('kam_user_name', e.target.value)}
-                  />
+                  <Input value={account.kam_user_name || ''} disabled />
                 </div>
               </CardContent>
             </Card>
@@ -539,13 +463,7 @@ export const AccountDetail: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Textarea
-                  value={isEditing ? (editedAccount?.notes || '') : (account.notes || '')}
-                  disabled={!isEditing}
-                  rows={4}
-                  placeholder="Adicione observacoes sobre a conta..."
-                  onChange={(e) => updateEditedAccount('notes', e.target.value)}
-                />
+                <Textarea value={account.notes || ''} disabled rows={4} />
               </CardContent>
             </Card>
           </div>
@@ -785,11 +703,38 @@ export const AccountDetail: React.FC = () => {
             </div>
             <div className="grid gap-2">
               <Label>E-mail</Label>
-              <Input type="email" value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="email@empresa.com" />
+              <Input type="email" value={contactForm.email} onChange={(e) => {
+                setContactForm({ ...contactForm, email: e.target.value });
+                if (e.target.value && !validateEmail(e.target.value)) {
+                  setContactEmailError('E-mail invalido');
+                } else {
+                  setContactEmailError('');
+                }
+              }} placeholder="email@empresa.com" className={contactEmailError ? 'border-red-500' : ''} />
+              {contactEmailError && <p className="text-xs text-red-500">{contactEmailError}</p>}
             </div>
             <div className="grid gap-2">
               <Label>Telefone</Label>
-              <Input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="(11) 99999-9999" />
+              <div className="flex gap-2">
+                <Select defaultValue="+55" onValueChange={(val) => {
+                  if (val !== '+55') {
+                    setContactForm({ ...contactForm, phone: val + ' ' });
+                  }
+                }}>
+                  <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="+55">🇧🇷 +55</SelectItem>
+                    <SelectItem value="+1">🇺🇸 +1</SelectItem>
+                    <SelectItem value="+351">🇵🇹 +351</SelectItem>
+                    <SelectItem value="+54">🇦🇷 +54</SelectItem>
+                    <SelectItem value="+56">🇨🇱 +56</SelectItem>
+                    <SelectItem value="+52">🇲🇽 +52</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="flex-1">
+                  <MaskedInput maskType="phone" value={contactForm.phone} onChange={(maskedValue) => setContactForm({ ...contactForm, phone: maskedValue })} placeholder="(11) 99999-9999" />
+                </div>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label>Cargo</Label>
@@ -798,7 +743,7 @@ export const AccountDetail: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsContactDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateContact} disabled={saving || !contactForm.name}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+            <Button onClick={handleCreateContact} disabled={saving || !contactForm.name || !!contactEmailError}>{saving ? 'Salvando...' : 'Salvar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -826,6 +771,100 @@ export const AccountDetail: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsOpportunityDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleCreateOpportunity} disabled={saving || !opportunityForm.title}>{saving ? 'Salvando...' : 'Salvar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar Conta</DialogTitle>
+            <DialogDescription>Edite as informacoes da conta</DialogDescription>
+          </DialogHeader>
+          {editedAccount && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Nome da Conta</Label>
+                <Input value={editedAccount.name} onChange={(e) => updateEditedAccount('name', e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>CNPJ</Label>
+                  <MaskedInput maskType="cnpj" value={editedAccount.cnpj || ''} onChange={(maskedValue) => updateEditedAccount('cnpj', maskedValue)} placeholder="00.000.000/0001-00" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Segmento</Label>
+                  <Input value={editedAccount.segment || ''} onChange={(e) => updateEditedAccount('segment', e.target.value)} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Website</Label>
+                <Input value={editedAccount.website || ''} onChange={(e) => updateEditedAccount('website', e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Cidade</Label>
+                  <Input value={editedAccount.city || ''} onChange={(e) => updateEditedAccount('city', e.target.value)} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Estado</Label>
+                  <Input value={editedAccount.state || ''} onChange={(e) => updateEditedAccount('state', e.target.value)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Faturamento Estimado</Label>
+                  <MaskedInput maskType="currency" value={editedAccount.estimated_revenue?.toString() || ''} onChange={(maskedValue) => {
+                    const numVal = parseFloat(maskedValue.replace(/[^0-9,]/g, '').replace(',', '.'));
+                    updateEditedAccount('estimated_revenue', isNaN(numVal) ? null : numVal);
+                  }} placeholder="R$ 0,00" />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Numero de Colaboradores</Label>
+                  <Input type="number" value={editedAccount.employee_count?.toString() || ''} onChange={(e) => updateEditedAccount('employee_count', e.target.value ? Number(e.target.value) : null)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Status</Label>
+                  <Select value={editedAccount.status || 'active'} onValueChange={(value) => updateEditedAccount('status', value)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Ativa</SelectItem>
+                      <SelectItem value="at_risk">Em Risco</SelectItem>
+                      <SelectItem value="churned">Perdida</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Categoria</Label>
+                  <Select value={editedAccount.category_id || ''} onValueChange={(value) => updateEditedAccount('category_id', value)}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">A</SelectItem>
+                      <SelectItem value="2">B</SelectItem>
+                      <SelectItem value="3">C</SelectItem>
+                      <SelectItem value="4">Estrategica</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>Conta Estrategica KAM</Label>
+                <Switch checked={editedAccount.is_strategic || false} onCheckedChange={(checked) => updateEditedAccount('is_strategic', checked)} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Observacoes</Label>
+                <Textarea value={editedAccount.notes || ''} rows={3} onChange={(e) => updateEditedAccount('notes', e.target.value)} placeholder="Observacoes sobre a conta..." />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelEditing}>Cancelar</Button>
+            <Button onClick={handleSaveAccount} disabled={saving}>
+              <Save className="mr-2 h-4 w-4" />
+              {saving ? 'Salvando...' : 'Salvar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

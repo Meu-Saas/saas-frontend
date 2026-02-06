@@ -197,6 +197,12 @@ export const validatePercentage = (value: string): boolean => {
   return !isNaN(number) && number >= 0 && number <= 100;
 };
 
+// Email validation
+export const validateEmail = (email: string): boolean => {
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email);
+};
+
 // Generic mask handler
 export type MaskType = 'cpf' | 'cnpj' | 'phone' | 'cep' | 'date' | 'currency' | 'percentage';
 
