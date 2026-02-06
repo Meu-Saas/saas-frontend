@@ -3,6 +3,8 @@ import { kamPlanAPI } from '../../services/api';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
+import { MaskedInput } from '../ui/masked-input';
+import { unmaskCurrency } from '../../utils/masks';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Badge } from '../ui/badge';
@@ -536,26 +538,26 @@ export const DiagnosticoContexto: React.FC<{ accountId: string }> = ({ accountId
         kamPlanAPI.getPains(accountId).catch(() => []),
       ]);
 
-      if (diagnosticData) {
-        setDiagnostic({
-          current_situation: diagnosticData.current_situation || '',
-          strategic_objectives: diagnosticData.strategic_objectives || '',
-          main_initiatives: diagnosticData.main_initiatives || '',
-          pains: Array.isArray(painsData) ? painsData.map((p: { id: number; description: string; impact: string; priority: string; affected_area?: string }) => ({
-            id: String(p.id),
-            description: p.description,
-            impact: p.impact as 'low' | 'medium' | 'high',
-            priority: p.priority as 'low' | 'medium' | 'high',
-            affected_area: p.affected_area || '',
-          })) : [],
-          swot: {
-            strengths: diagnosticData.swot_strengths || '',
-            weaknesses: diagnosticData.swot_weaknesses || '',
-            opportunities: diagnosticData.swot_opportunities || '',
-            threats: diagnosticData.swot_threats || '',
-          },
-        });
-      }
+      const loadedPains = Array.isArray(painsData) ? painsData.map((p: { id: number; description: string; impact: string; priority: string; affected_area?: string }) => ({
+        id: String(p.id),
+        description: p.description,
+        impact: p.impact as 'low' | 'medium' | 'high',
+        priority: p.priority as 'low' | 'medium' | 'high',
+        affected_area: p.affected_area || '',
+      })) : [];
+
+      setDiagnostic({
+        current_situation: diagnosticData?.current_situation || '',
+        strategic_objectives: diagnosticData?.strategic_objectives || '',
+        main_initiatives: diagnosticData?.main_initiatives || '',
+        pains: loadedPains,
+        swot: {
+          strengths: diagnosticData?.swot_strengths || '',
+          weaknesses: diagnosticData?.swot_weaknesses || '',
+          opportunities: diagnosticData?.swot_opportunities || '',
+          threats: diagnosticData?.swot_threats || '',
+        },
+      });
     } catch (error) {
       console.error('Error loading diagnostic:', error);
     } finally {
@@ -1507,18 +1509,20 @@ export const WalletShare: React.FC<{ accountId: string }> = ({ accountId }) => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Potencial Anual (R$)</Label>
-                <Input
-                  type="number"
-                  value={newLine.annual_potential}
-                  onChange={(e) => setNewLine({ ...newLine, annual_potential: parseFloat(e.target.value) || 0 })}
+                <MaskedInput
+                  maskType="currency"
+                  value={newLine.annual_potential ? newLine.annual_potential.toString() : ''}
+                  onChange={(maskedValue) => setNewLine({ ...newLine, annual_potential: unmaskCurrency(maskedValue) })}
+                  placeholder="R$ 0,00"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Receita Atual (R$)</Label>
-                <Input
-                  type="number"
-                  value={newLine.current_revenue}
-                  onChange={(e) => setNewLine({ ...newLine, current_revenue: parseFloat(e.target.value) || 0 })}
+                <MaskedInput
+                  maskType="currency"
+                  value={newLine.current_revenue ? newLine.current_revenue.toString() : ''}
+                  onChange={(maskedValue) => setNewLine({ ...newLine, current_revenue: unmaskCurrency(maskedValue) })}
+                  placeholder="R$ 0,00"
                 />
               </div>
             </div>

@@ -53,8 +53,8 @@ import {
   RiscosConcorrencia,
   MatrizValor,
 } from '../components/kam';
-import { accountsAPI, contactsAPI, opportunitiesAPI, activitiesAPI, kamPlanAPI } from '../services/api';
-import { validateEmail } from '../utils/masks';
+import { accountsAPI, contactsAPI, opportunitiesAPI, activitiesAPI, kamPlanAPI, adminAPI } from '../services/api';
+import { validateEmail, unmaskCurrency } from '../utils/masks';
 
 interface Account {
   id: string;
@@ -118,7 +118,8 @@ export const AccountDetail: React.FC = () => {
   const [isOpportunityDialogOpen, setIsOpportunityDialogOpen] = useState(false);
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', role: '' });
-  const [opportunityForm, setOpportunityForm] = useState({ title: '', value: '', expected_close_date: '' });
+  const [opportunityForm, setOpportunityForm] = useState({ title: '', value: '', expected_close_date: '', stage_id: '' });
+  const [pipelineStages, setPipelineStages] = useState<{id: number; name: string}[]>([]);
   const [activityForm, setActivityForm] = useState({ title: '', type: 'meeting', scheduled_at: '', description: '' });
   const [saving, setSaving] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -126,6 +127,7 @@ export const AccountDetail: React.FC = () => {
 
   useEffect(() => {
     loadAccountData();
+    adminAPI.getPipelineStages().then((stages: {id: number; name: string}[]) => setPipelineStages(stages)).catch(() => {});
   }, [id]);
 
   const loadAccountData = async () => {
@@ -297,9 +299,10 @@ export const AccountDetail: React.FC = () => {
       if (!opportunityForm.title || !id) return;
       setSaving(true);
       try {
-        await opportunitiesAPI.create({ account_id: Number(id), title: opportunityForm.title, value: opportunityForm.value ? Number(opportunityForm.value) : undefined, expected_close_date: opportunityForm.expected_close_date || undefined });
+        const oppValue = opportunityForm.value ? unmaskCurrency(opportunityForm.value) : undefined;
+        await opportunitiesAPI.create({ account_id: Number(id), title: opportunityForm.title, value: oppValue && oppValue > 0 ? oppValue : undefined, expected_close_date: opportunityForm.expected_close_date || undefined, stage_id: opportunityForm.stage_id ? Number(opportunityForm.stage_id) : undefined } as any);
         setIsOpportunityDialogOpen(false);
-        setOpportunityForm({ title: '', value: '', expected_close_date: '' });
+        setOpportunityForm({ title: '', value: '', expected_close_date: '', stage_id: '' });
         loadAccountData();
       } catch (error) {
         console.error('Error creating opportunity:', error);
@@ -312,7 +315,8 @@ export const AccountDetail: React.FC = () => {
       if (!activityForm.title || !id) return;
       setSaving(true);
       try {
-        await activitiesAPI.create({ account_id: Number(id), title: activityForm.title, scheduled_at: activityForm.scheduled_at || new Date().toISOString(), description: activityForm.description || undefined });
+        const typeIdMap: Record<string, number> = { meeting: 1, call: 2, email: 3, task: 4 };
+        await activitiesAPI.create({ account_id: Number(id), title: activityForm.title, type_id: typeIdMap[activityForm.type] || undefined, scheduled_at: activityForm.scheduled_at || new Date().toISOString(), description: activityForm.description || undefined });
         setIsActivityDialogOpen(false);
         setActivityForm({ title: '', type: 'meeting', scheduled_at: '', description: '' });
         loadAccountData();
@@ -359,7 +363,7 @@ export const AccountDetail: React.FC = () => {
               <Badge variant="outline">{account.category_name || 'Sem categoria'}</Badge>
             </div>
             <p className="text-muted-foreground">
-              {account.segment} | {account.city}, {account.state}
+              {[account.segment, [account.city, account.state].filter(Boolean).join(', ')].filter(Boolean).join(' | ')}
             </p>
           </div>
         </div>
@@ -759,9 +763,22 @@ export const AccountDetail: React.FC = () => {
               <Label>Titulo *</Label>
               <Input value={opportunityForm.title} onChange={(e) => setOpportunityForm({ ...opportunityForm, title: e.target.value })} placeholder="Titulo da oportunidade" />
             </div>
+            {pipelineStages.length > 0 && (
+              <div className="grid gap-2">
+                <Label>Etapa do Pipeline</Label>
+                <Select value={opportunityForm.stage_id} onValueChange={(value) => setOpportunityForm({ ...opportunityForm, stage_id: value })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a etapa" /></SelectTrigger>
+                  <SelectContent>
+                    {pipelineStages.map((stage) => (
+                      <SelectItem key={stage.id} value={String(stage.id)}>{stage.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label>Valor</Label>
-              <Input type="number" value={opportunityForm.value} onChange={(e) => setOpportunityForm({ ...opportunityForm, value: e.target.value })} placeholder="10000" />
+              <MaskedInput maskType="currency" value={opportunityForm.value} onChange={(maskedValue) => setOpportunityForm({ ...opportunityForm, value: maskedValue })} placeholder="R$ 0,00" />
             </div>
             <div className="grid gap-2">
               <Label>Data Prevista de Fechamento</Label>
