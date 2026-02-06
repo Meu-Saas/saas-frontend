@@ -66,10 +66,12 @@ export const Accounts: React.FC = () => {
     
     setSaving(true);
     try {
+      const categoryMap: Record<string, number> = { 'A': 1, 'B': 2, 'C': 3, 'strategic': 4 };
       await accountsAPI.create({
         name: formData.name,
-        industry: formData.segment || undefined,
-        description: formData.cnpj ? `CNPJ: ${formData.cnpj}` : undefined,
+        segment: formData.segment || undefined,
+        cnpj: formData.cnpj || undefined,
+        category_id: formData.category ? categoryMap[formData.category] : undefined,
       });
       setIsDialogOpen(false);
       setFormData({ name: '', cnpj: '', segment: '', category: '' });

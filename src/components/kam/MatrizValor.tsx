@@ -43,7 +43,7 @@ import {
   Sparkles,
   Loader2,
 } from 'lucide-react';
-import { valueMatrixAPI, contactsAPI, kamPlanAPI } from '../../services/api';
+import { valueMatrixAPI, kamPlanAPI } from '../../services/api';
 
 interface ValueAttribute {
   id: number;
@@ -125,29 +125,27 @@ export const MatrizValor: React.FC<MatrizValorProps> = ({ accountId }) => {
         setAttributes(attributesData);
       }
 
-      // Load contacts as stakeholders (contacts can be used as stakeholders)
       try {
-        const contactsData = await contactsAPI.getByAccount(accountId);
-        if (Array.isArray(contactsData)) {
-          const stakeholdersList: Stakeholder[] = contactsData.map((contact) => ({
-            id: parseInt(String(contact.id), 10),
-            name: contact.name,
-            role: contact.role || 'Contato',
-            department: '',
-            power_level: 3,
-            support_level: 'Neutro',
-            relationship_level: 'Neutro',
-            superior_id: null,
-            show_in_orgchart: true,
+        const kamStakeholders = await kamPlanAPI.getStakeholders(accountId);
+        if (Array.isArray(kamStakeholders)) {
+          const stakeholdersList: Stakeholder[] = kamStakeholders.map((s: { id: number; contact_name: string; role?: string; area?: string; power_level?: number; support_level?: string; relationship_level?: string; superior_id?: number | null; show_in_orgchart?: boolean }) => ({
+            id: s.id,
+            name: s.contact_name || '',
+            role: s.role || '',
+            department: s.area || '',
+            power_level: s.power_level || 3,
+            support_level: s.support_level === 'supporter' ? 'Apoiador' : s.support_level === 'opponent' ? 'Opositor' : 'Neutro',
+            relationship_level: s.relationship_level === 'sponsor' ? 'Patrocinador' : s.relationship_level === 'good' ? 'Bom' : s.relationship_level === 'cold' ? 'Frio' : 'Neutro',
+            superior_id: s.superior_id || null,
+            show_in_orgchart: s.show_in_orgchart ?? true,
             related_attributes: [],
           }));
           setStakeholders(stakeholdersList);
-          // Expand first level nodes
           const rootIds = stakeholdersList.filter(s => s.superior_id === null).map(s => s.id);
           setExpandedNodes(new Set(rootIds));
         }
-      } catch (contactError) {
-        console.error('Error loading contacts as stakeholders:', contactError);
+      } catch (stakeholderError) {
+        console.error('Error loading KAM stakeholders:', stakeholderError);
         setStakeholders([]);
       }
     } catch (error) {

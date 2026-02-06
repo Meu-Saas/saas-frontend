@@ -311,21 +311,17 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
     if (!selectedPillar || !accountId) return;
     setSaving(true);
     try {
-      let savedPillar;
-      // Check if this pillar exists in DB (numeric ID) or is a default (string ID like '1', '2', etc.)
       const isFromDB = !isNaN(Number(selectedPillar.id)) && Number(selectedPillar.id) > 6;
       
       if (isFromDB) {
-        // Update existing pillar in database
-        savedPillar = await kamPlanAPI.updatePillar(accountId, Number(selectedPillar.id), {
+        await kamPlanAPI.updatePillar(accountId, Number(selectedPillar.id), {
           current_level: selectedPillar.current_level,
           kam_analysis: selectedPillar.kam_analysis,
           maturity_items: selectedPillar.maturity_items,
         });
-        setPillars(pillars.map(p => p.id === selectedPillar.id ? selectedPillar : p));
+        setPillars(prev => prev.map(p => p.id === selectedPillar.id ? { ...selectedPillar } : p));
       } else {
-        // Create new pillar (first time saving this pillar)
-        savedPillar = await kamPlanAPI.createPillar(accountId, {
+        const savedPillar = await kamPlanAPI.createPillar(accountId, {
           name: selectedPillar.name,
           description: selectedPillar.description,
           tactical_description: selectedPillar.tactical_description,
@@ -334,11 +330,10 @@ export const AnatomiaKAM: React.FC<{ accountId: string }> = ({ accountId }) => {
           kam_analysis: selectedPillar.kam_analysis,
           maturity_items: selectedPillar.maturity_items,
         });
-        // Update the pillar ID with the one from the database
-        if (savedPillar && savedPillar.id) {
-          const updatedPillar = { ...selectedPillar, id: String(savedPillar.id) };
-          setPillars(pillars.map(p => p.name === selectedPillar.name ? updatedPillar : p));
-        }
+        const updatedPillar = savedPillar?.id
+          ? { ...selectedPillar, id: String(savedPillar.id) }
+          : { ...selectedPillar };
+        setPillars(prev => prev.map(p => p.name === selectedPillar.name ? updatedPillar : p));
       }
       setIsDialogOpen(false);
     } catch (error) {
@@ -881,6 +876,8 @@ export const DiagnosticoContexto: React.FC<{ accountId: string }> = ({ accountId
 export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId }) => {
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [isAddingStakeholder, setIsAddingStakeholder] = useState(false);
+  const [editingStakeholder, setEditingStakeholder] = useState<Stakeholder | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newStakeholder, setNewStakeholder] = useState<Partial<Stakeholder>>({
     contact_name: '',
     role: '',
@@ -1068,7 +1065,10 @@ export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId })
                 </TableCell>
                 <TableCell className="max-w-[200px] truncate">{stakeholder.objective}</TableCell>
                 <TableCell>
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" onClick={() => {
+                    setEditingStakeholder({ ...stakeholder });
+                    setIsEditDialogOpen(true);
+                  }}>
                     <Edit className="h-4 w-4" />
                   </Button>
                 </TableCell>
@@ -1077,6 +1077,124 @@ export const MapaStakeholders: React.FC<{ accountId: string }> = ({ accountId })
           </TableBody>
         </Table>
       )}
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar Stakeholder</DialogTitle>
+          </DialogHeader>
+          {editingStakeholder && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nome</Label>
+                  <Input
+                    value={editingStakeholder.contact_name}
+                    onChange={(e) => setEditingStakeholder({ ...editingStakeholder, contact_name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cargo</Label>
+                  <Input
+                    value={editingStakeholder.role}
+                    onChange={(e) => setEditingStakeholder({ ...editingStakeholder, role: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Area</Label>
+                <Input
+                  value={editingStakeholder.area}
+                  onChange={(e) => setEditingStakeholder({ ...editingStakeholder, area: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Nivel de Poder (1-5)</Label>
+                <Slider
+                  value={[editingStakeholder.power_level]}
+                  onValueChange={(value) => setEditingStakeholder({ ...editingStakeholder, power_level: value[0] })}
+                  min={1}
+                  max={5}
+                  step={1}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nivel de Apoio</Label>
+                  <Select
+                    value={editingStakeholder.support_level}
+                    onValueChange={(value) => setEditingStakeholder({ ...editingStakeholder, support_level: value as 'supporter' | 'neutral' | 'opponent' })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="supporter">Apoiador</SelectItem>
+                      <SelectItem value="neutral">Neutro</SelectItem>
+                      <SelectItem value="opponent">Opositor</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Nivel de Relacionamento</Label>
+                  <Select
+                    value={editingStakeholder.relationship_level}
+                    onValueChange={(value) => setEditingStakeholder({ ...editingStakeholder, relationship_level: value as 'cold' | 'neutral' | 'good' | 'sponsor' })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cold">Frio</SelectItem>
+                      <SelectItem value="neutral">Neutro</SelectItem>
+                      <SelectItem value="good">Bom</SelectItem>
+                      <SelectItem value="sponsor">Patrocinador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Objetivo</Label>
+                <Textarea
+                  value={editingStakeholder.objective}
+                  onChange={(e) => setEditingStakeholder({ ...editingStakeholder, objective: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Estrategia de Engajamento</Label>
+                <Textarea
+                  value={editingStakeholder.engagement_strategy}
+                  onChange={(e) => setEditingStakeholder({ ...editingStakeholder, engagement_strategy: e.target.value })}
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={async () => {
+              if (!editingStakeholder || !accountId) return;
+              setSaving(true);
+              try {
+                await kamPlanAPI.updateStakeholder(accountId, Number(editingStakeholder.id), {
+                  contact_name: editingStakeholder.contact_name,
+                  role: editingStakeholder.role,
+                  area: editingStakeholder.area,
+                  power_level: editingStakeholder.power_level,
+                  support_level: editingStakeholder.support_level,
+                  relationship_level: editingStakeholder.relationship_level,
+                  objective: editingStakeholder.objective,
+                  engagement_strategy: editingStakeholder.engagement_strategy,
+                });
+                setStakeholders(prev => prev.map(s => s.id === editingStakeholder.id ? { ...editingStakeholder } : s));
+                setIsEditDialogOpen(false);
+              } catch (error) {
+                console.error('Error updating stakeholder:', error);
+                alert('Erro ao atualizar stakeholder.');
+              } finally {
+                setSaving(false);
+              }
+            }}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isAddingStakeholder} onOpenChange={setIsAddingStakeholder}>
         <DialogContent className="max-w-lg">

@@ -692,7 +692,7 @@ export const kamPlanAPI = {
     return response.data;
   },
 
-  updateStakeholder: async (accountId: string, stakeholderId: number, data: { power_level?: number; support_level?: number; relationship_level?: number; engagement_strategy?: string }) => {
+  updateStakeholder: async (accountId: string, stakeholderId: number, data: { contact_name?: string; role?: string; area?: string; power_level?: number; support_level?: string; relationship_level?: string; objective?: string; engagement_strategy?: string; show_in_orgchart?: boolean; superior_id?: number | null }) => {
     const response = await api.put(`/api/v1/kam-plan/${accountId}/stakeholders/${stakeholderId}`, data);
     return response.data;
   },
