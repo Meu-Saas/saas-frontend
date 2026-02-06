@@ -312,13 +312,13 @@ export const Prioritization: React.FC = () => {
                 <Label>Segmento</Label>
                 <Select
                   value={filters.segment}
-                  onValueChange={(value) => setFilters({ ...filters, segment: value })}
+                  onValueChange={(value) => setFilters({ ...filters, segment: value === '__all__' ? '' : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="__all__">Todos</SelectItem>
                     {uniqueSegments.map(seg => (
                       <SelectItem key={seg} value={seg}>{seg}</SelectItem>
                     ))}
@@ -329,13 +329,13 @@ export const Prioritization: React.FC = () => {
                 <Label>Categoria ABC</Label>
                 <Select
                   value={filters.category}
-                  onValueChange={(value) => setFilters({ ...filters, category: value })}
+                  onValueChange={(value) => setFilters({ ...filters, category: value === '__all__' ? '' : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="__all__">Todas</SelectItem>
                     <SelectItem value="A">A</SelectItem>
                     <SelectItem value="B">B</SelectItem>
                     <SelectItem value="C">C</SelectItem>
@@ -354,7 +354,7 @@ export const Prioritization: React.FC = () => {
               <div className="flex items-end">
                 <Button
                   variant="outline"
-                  onClick={() => setFilters({ segment: '', category: '', minScore: '' })}
+                  onClick={() => { setFilters({ segment: '', category: '', minScore: '' }); }}
                 >
                   Limpar Filtros
                 </Button>

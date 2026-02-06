@@ -3,6 +3,7 @@ import { opportunitiesAPI, adminAPI, accountsAPI } from '../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
+import { MaskedInput } from '../components/ui/masked-input';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,7 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Plus, Search, DollarSign, Calendar, Building2 } from 'lucide-react';
+import { unmaskCurrency } from '../utils/masks';
 
 interface Opportunity {
   id: number;
@@ -126,7 +128,7 @@ export const Opportunities: React.FC = () => {
       await opportunitiesAPI.create({
         title: formData.title,
         account_id: parseInt(formData.account_id),
-        value: formData.value ? parseFloat(formData.value) : undefined,
+        value: formData.value ? unmaskCurrency(formData.value) || undefined : undefined,
         expected_close_date: formData.expected_close_date || undefined,
         description: formData.description || undefined,
         stage_id: formData.stage_id ? parseInt(formData.stage_id) : undefined,
@@ -228,12 +230,12 @@ export const Opportunities: React.FC = () => {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="value">Valor</Label>
-                  <Input 
-                    id="value" 
-                    type="number" 
-                    placeholder="0.00" 
+                  <MaskedInput
+                    id="value"
+                    maskType="currency"
+                    placeholder="R$ 0,00"
                     value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                    onChange={(maskedValue) => setFormData({ ...formData, value: maskedValue })}
                   />
                 </div>
                 <div className="grid gap-2">
